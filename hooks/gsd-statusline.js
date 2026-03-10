@@ -67,6 +67,17 @@ function parseStateMd(content) {
     state.phaseName = phaseMatch[3] || null;
   }
 
+  // Fallback: parse Status: from body when frontmatter is absent
+  if (!state.status) {
+    const bodyStatus = content.match(/^Status:\s*(.+)/m);
+    if (bodyStatus) {
+      const raw = bodyStatus[1].trim().toLowerCase();
+      if (raw.includes('ready to plan') || raw.includes('planning')) state.status = 'planning';
+      else if (raw.includes('execut')) state.status = 'executing';
+      else if (raw.includes('complet') || raw.includes('archived')) state.status = 'complete';
+    }
+  }
+
   return state;
 }
 
