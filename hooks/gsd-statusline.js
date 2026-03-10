@@ -3,14 +3,18 @@
 // Shows: model | current task (or GSD state) | directory | context usage
 //
 // Flags:
-//   --no-ctx   Suppress context progress bar (useful when compositing with
-//              another statusline that already shows context, e.g. OMCC)
+//   --no-ctx    Suppress context progress bar (useful when compositing with
+//               another statusline that already shows context, e.g. OMCC)
+//   --no-model  Suppress model name
+//   --no-repo   Suppress repository/directory name
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const noCtx = process.argv.includes('--no-ctx');
+const noCtx   = process.argv.includes('--no-ctx');
+const noModel = process.argv.includes('--no-model');
+const noRepo  = process.argv.includes('--no-repo');
 
 // --- GSD state reader -------------------------------------------------------
 
@@ -214,30 +218,29 @@ process.stdin.on('end', () => {
     const gsdStateStr = task ? '' : formatGsdState(readGsdState(dir) || {});
 
     // GSD update available?
-    let gsdUpdate = '';
+    let gsdUpdate = null;
     const cacheFile = path.join(claudeDir, 'cache', 'gsd-update-check.json');
     if (fs.existsSync(cacheFile)) {
       try {
         const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
         if (cache.update_available) {
-          gsdUpdate = '\x1b[33m⬆ /gsd:update\x1b[0m │ ';
+          gsdUpdate = '\x1b[33m⬆ /gsd:update\x1b[0m';
         }
       } catch (e) {}
     }
 
     // Output
     const dirname = path.basename(dir);
+    const modelPart = noModel ? null : `\x1b[2m${model}\x1b[0m`;
+    const repoPart  = noRepo  ? null : `\x1b[2m${dirname}\x1b[0m`;
     const middle = task
       ? `\x1b[1m${task}\x1b[0m`
       : gsdStateStr
         ? `\x1b[2m${gsdStateStr}\x1b[0m`
         : null;
 
-    if (middle) {
-      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ ${middle} │ \x1b[2m${dirname}\x1b[0m${ctx}`);
-    } else {
-      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
-    }
+    const segments = [gsdUpdate, modelPart, middle, repoPart].filter(Boolean);
+    process.stdout.write(segments.join(' │ ') + ctx);
   } catch (e) {
     // Silent fail - don't break statusline on parse errors
   }
