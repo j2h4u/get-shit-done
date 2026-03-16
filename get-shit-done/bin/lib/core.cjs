@@ -402,6 +402,23 @@ function extractOneLinerFromBody(content) {
   return match ? match[1].trim() : null;
 }
 
+// ─── Summary body helpers ─────────────────────────────────────────────────
+
+/**
+ * Extract a one-liner from the summary body when it's not in frontmatter.
+ * The summary template defines one-liner as a bold markdown line after the heading:
+ *   # Phase X: Name Summary
+ *   **[substantive one-liner text]**
+ */
+function extractOneLinerFromBody(content) {
+  if (!content) return null;
+  // Strip frontmatter first
+  const body = content.replace(/^---\n[\s\S]*?\n---\n*/, '');
+  // Find the first **...** line after a # heading
+  const match = body.match(/^#[^\n]*\n+\*\*([^*]+)\*\*/m);
+  return match ? match[1].trim() : null;
+}
+
 // ─── Misc utilities ───────────────────────────────────────────────────────────
 
 function pathExistsInternal(cwd, targetPath) {

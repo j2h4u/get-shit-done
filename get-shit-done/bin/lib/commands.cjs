@@ -4,11 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-<<<<<<< HEAD
 const { safeReadFile, loadConfig, isGitIgnored, execGit, normalizePhaseName, comparePhaseNum, getArchivedPhaseDirs, generateSlugInternal, getMilestoneInfo, getMilestonePhaseFilter, resolveModelInternal, stripShippedMilestones, toPosixPath, output, error, findPhaseInternal, extractOneLinerFromBody } = require('./core.cjs');
-=======
-const { safeReadFile, loadConfig, isGitIgnored, execGit, normalizePhaseName, comparePhaseNum, getArchivedPhaseDirs, generateSlugInternal, getMilestoneInfo, resolveModelInternal, MODEL_PROFILES, toPosixPath, output, error, findPhaseInternal, extractOneLinerFromBody } = require('./core.cjs');
->>>>>>> 7c2ac53 (fix(lifecycle): extract one-liner from summary body when not in frontmatter)
 const { extractFrontmatter } = require('./frontmatter.cjs');
 const { MODEL_PROFILES } = require('./model-profiles.cjs');
 
