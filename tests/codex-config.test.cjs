@@ -354,6 +354,36 @@ describe('mergeCodexConfig', () => {
     assert.ok(content.includes('[agents.gsd-executor]'), 'has agent');
   });
 
+  test('case 3 strips existing [agents.gsd-*] sections before appending fresh block', () => {
+    const configPath = path.join(tmpDir, 'config.toml');
+    const existing = [
+      '[model]',
+      'name = "o3"',
+      '',
+      '[agents.custom-agent]',
+      'description = "user agent"',
+      '',
+      '',
+      '[agents.gsd-executor]',
+      'description = "old"',
+      'config_file = "agents/gsd-executor.toml"',
+      '',
+    ].join('\n');
+    fs.writeFileSync(configPath, existing);
+
+    mergeCodexConfig(configPath, sampleBlock);
+
+    const content = fs.readFileSync(configPath, 'utf8');
+    const gsdAgentCount = (content.match(/^\[agents\.gsd-executor\]\s*$/gm) || []).length;
+    const markerCount = (content.match(new RegExp(GSD_CODEX_MARKER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+
+    assert.ok(content.includes('[model]'), 'preserves user content');
+    assert.ok(content.includes('[agents.custom-agent]'), 'preserves non-GSD agent section');
+    assert.strictEqual(gsdAgentCount, 1, 'keeps exactly one GSD agent section');
+    assert.strictEqual(markerCount, 1, 'adds exactly one marker block');
+    assert.ok(!/\n{3,}# GSD Agent Configuration/.test(content), 'does not leave extra blank lines before marker block');
+  });
+
   test('idempotent: re-merge produces same result', () => {
     const configPath = path.join(tmpDir, 'config.toml');
     mergeCodexConfig(configPath, sampleBlock);

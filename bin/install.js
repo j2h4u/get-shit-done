@@ -857,6 +857,10 @@ function generateCodexConfigBlock(agents) {
   return lines.join('\n');
 }
 
+function stripCodexGsdAgentSections(content) {
+  return content.replace(/^\[agents\.gsd-[^\]]+\]\n(?:(?!\[)[^\n]*\n?)*/gm, '');
+}
+
 /**
  * Strip GSD sections from Codex config.toml content.
  * Returns cleaned content, or null if file would be empty.
@@ -882,7 +886,7 @@ function stripGsdFromCodexConfig(content) {
   cleaned = cleaned.replace(/^default_mode_request_user_input\s*=\s*true\s*\n?/m, '');
 
   // Remove [agents.gsd-*] sections (from header to next section or EOF)
-  cleaned = cleaned.replace(/^\[agents\.gsd-[^\]]+\]\n(?:(?!\[)[^\n]*\n?)*/gm, '');
+  cleaned = stripCodexGsdAgentSections(cleaned);
 
   // Remove [features] section if now empty (only header, no keys before next section)
   cleaned = cleaned.replace(/^\[features\]\s*\n(?=\[|$)/m, '');
@@ -916,7 +920,7 @@ function mergeCodexConfig(configPath, gsdBlock) {
     let before = existing.substring(0, markerIndex).trimEnd();
     if (before) {
       // Strip any GSD-managed sections that leaked above the marker from previous installs
-      before = before.replace(/^\[agents\.gsd-[^\]]+\]\n(?:(?!\[)[^\n]*\n?)*/gm, '');
+      before = stripCodexGsdAgentSections(before);
       before = before.replace(/^\[agents\]\n(?:(?!\[)[^\n]*\n?)*/m, '');
       before = before.replace(/\n{3,}/g, '\n\n').trimEnd();
 
@@ -929,7 +933,14 @@ function mergeCodexConfig(configPath, gsdBlock) {
 
   // Case 3: No marker — append GSD block
   let content = existing;
-  content = content.trimEnd() + '\n\n' + gsdBlock + '\n';
+  content = stripCodexGsdAgentSections(content);
+  content = content.replace(/\n{3,}/g, '\n\n').trimEnd();
+
+  if (content) {
+    content = content + '\n\n' + gsdBlock + '\n';
+  } else {
+    content = gsdBlock + '\n';
+  }
 
   fs.writeFileSync(configPath, content);
 }
