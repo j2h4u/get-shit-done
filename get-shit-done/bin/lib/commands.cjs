@@ -84,6 +84,11 @@ function cmdVerifyPathExists(cwd, targetPath, raw) {
     error('path required for verification');
   }
 
+  // Reject null bytes and validate path does not contain traversal attempts
+  if (targetPath.includes('\0')) {
+    error('path contains null bytes');
+  }
+
   const fullPath = path.isAbsolute(targetPath) ? targetPath : path.join(cwd, targetPath);
 
   try {
@@ -219,6 +224,13 @@ function cmdCommit(cwd, message, files, raw, amend, noVerify) {
     error('commit message required');
   }
 
+  // Sanitize commit message: strip invisible chars and injection markers
+  // that could hijack agent context when commit messages are read back
+  if (message) {
+    const { sanitizeForPrompt } = require('./security.cjs');
+    message = sanitizeForPrompt(message);
+  }
+
   const config = loadConfig(cwd);
 
   // Check commit_docs config
@@ -267,6 +279,74 @@ function cmdCommit(cwd, message, files, raw, amend, noVerify) {
   const hash = hashResult.exitCode === 0 ? hashResult.stdout : null;
   const result = { committed: true, hash, reason: 'committed' };
   output(result, raw, hash || 'committed');
+}
+
+function cmdCommitToSubrepo(cwd, message, files, raw) {
+  if (!message) {
+    error('commit message required');
+  }
+
+  const config = loadConfig(cwd);
+  const subRepos = config.sub_repos;
+
+  if (!subRepos || subRepos.length === 0) {
+    error('no sub_repos configured in .planning/config.json');
+  }
+
+  if (!files || files.length === 0) {
+    error('--files required for commit-to-subrepo');
+  }
+
+  // Group files by sub-repo prefix
+  const grouped = {};
+  const unmatched = [];
+  for (const file of files) {
+    const match = subRepos.find(repo => file.startsWith(repo + '/'));
+    if (match) {
+      if (!grouped[match]) grouped[match] = [];
+      grouped[match].push(file);
+    } else {
+      unmatched.push(file);
+    }
+  }
+
+  if (unmatched.length > 0) {
+    process.stderr.write(`Warning: ${unmatched.length} file(s) did not match any sub-repo prefix: ${unmatched.join(', ')}\n`);
+  }
+
+  const repos = {};
+  for (const [repo, repoFiles] of Object.entries(grouped)) {
+    const repoCwd = path.join(cwd, repo);
+
+    // Stage files (strip sub-repo prefix for paths relative to that repo)
+    for (const file of repoFiles) {
+      const relativePath = file.slice(repo.length + 1);
+      execGit(repoCwd, ['add', relativePath]);
+    }
+
+    // Commit
+    const commitResult = execGit(repoCwd, ['commit', '-m', message]);
+    if (commitResult.exitCode !== 0) {
+      if (commitResult.stdout.includes('nothing to commit') || commitResult.stderr.includes('nothing to commit')) {
+        repos[repo] = { committed: false, hash: null, files: repoFiles, reason: 'nothing_to_commit' };
+        continue;
+      }
+      repos[repo] = { committed: false, hash: null, files: repoFiles, reason: 'error', error: commitResult.stderr };
+      continue;
+    }
+
+    // Get hash
+    const hashResult = execGit(repoCwd, ['rev-parse', '--short', 'HEAD']);
+    const hash = hashResult.exitCode === 0 ? hashResult.stdout : null;
+    repos[repo] = { committed: true, hash, files: repoFiles };
+  }
+
+  const result = {
+    committed: Object.values(repos).some(r => r.committed),
+    repos,
+    unmatched: unmatched.length > 0 ? unmatched : undefined,
+  };
+  output(result, raw, Object.entries(repos).map(([r, v]) => `${r}:${v.hash || 'skip'}`).join(' '));
 }
 
 function cmdSummaryExtract(cwd, summaryPath, fields, raw) {
@@ -831,6 +911,7 @@ module.exports = {
   cmdHistoryDigest,
   cmdResolveModel,
   cmdCommit,
+  cmdCommitToSubrepo,
   cmdSummaryExtract,
   cmdWebsearch,
   cmdProgressRender,
