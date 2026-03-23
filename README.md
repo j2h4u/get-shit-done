@@ -84,7 +84,7 @@ npx get-shit-done-cc@latest
 ```
 
 The installer prompts you to choose:
-1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, Copilot, Cursor, Antigravity, or all
+1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, Copilot, Cursor, Antigravity, or all (interactive multi-select — pick multiple runtimes in a single install session)
 2. **Location** — Global (all projects) or local (current project only)
 
 Verify with:
@@ -253,6 +253,8 @@ For each area you select, it asks until you're satisfied. The output — `CONTEX
 The deeper you go here, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get *your* vision.
 
 **Creates:** `{phase_num}-CONTEXT.md`
+
+> **Assumptions Mode:** Prefer codebase analysis over questions? Set `workflow.discuss_mode` to `assumptions` in `/gsd:settings`. The system reads your code, surfaces what it would do and why, and only asks you to correct what's wrong. See [Discuss Mode](docs/workflow-discuss-mode.md).
 
 ---
 
@@ -503,7 +505,7 @@ You're never locked in. The system adapts.
 |---------|--------------|
 | `/gsd:new-project [--auto]` | Full initialization: questions → research → requirements → roadmap |
 | `/gsd:discuss-phase [N] [--auto] [--analyze]` | Capture implementation decisions before planning (`--analyze` adds trade-off analysis) |
-| `/gsd:plan-phase [N] [--auto]` | Research + plan + verify for a phase |
+| `/gsd:plan-phase [N] [--auto] [--reviews]` | Research + plan + verify for a phase (`--reviews` loads codebase review findings) |
 | `/gsd:execute-phase <N>` | Execute all plans in parallel waves, verify when complete |
 | `/gsd:verify-work [N]` | Manual user acceptance testing ¹ |
 | `/gsd:ship [N] [--draft]` | Create PR from verified phase work with auto-generated body |
@@ -512,6 +514,25 @@ You're never locked in. The system adapts.
 | `/gsd:audit-milestone` | Verify milestone achieved its definition of done |
 | `/gsd:complete-milestone` | Archive milestone, tag release |
 | `/gsd:new-milestone [name]` | Start next version: questions → research → requirements → roadmap |
+| `/gsd:forensics [desc]` | Post-mortem investigation of failed workflow runs (diagnoses stuck loops, missing artifacts, git anomalies) |
+| `/gsd:milestone-summary [version]` | Generate comprehensive project summary for team onboarding and review |
+
+### Workstreams
+
+| Command | What it does |
+|---------|--------------|
+| `/gsd:workstreams list` | Show all workstreams and their status |
+| `/gsd:workstreams create <name>` | Create a namespaced workstream for parallel milestone work |
+| `/gsd:workstreams switch <name>` | Switch active workstream |
+| `/gsd:workstreams complete <name>` | Complete and merge a workstream |
+
+### Multi-Project Workspaces
+
+| Command | What it does |
+|---------|--------------|
+| `/gsd:new-workspace` | Create isolated workspace with repo copies (worktrees or clones) |
+| `/gsd:list-workspaces` | Show all GSD workspaces and their status |
+| `/gsd:remove-workspace` | Remove workspace and clean up worktrees |
 
 ### UI Design
 
@@ -529,6 +550,7 @@ You're never locked in. The system adapts.
 | `/gsd:help` | Show all commands and usage guide |
 | `/gsd:update` | Update GSD with changelog preview |
 | `/gsd:join-discord` | Join the GSD Discord community |
+| `/gsd:manager` | Interactive command center for managing multiple phases |
 
 ### Brownfield
 
@@ -553,6 +575,12 @@ You're never locked in. The system adapts.
 | `/gsd:pause-work` | Create handoff when stopping mid-phase (writes HANDOFF.json) |
 | `/gsd:resume-work` | Restore from last session |
 | `/gsd:session-report` | Generate session summary with work performed and outcomes |
+
+### Workstreams
+
+| Command | What it does |
+|---------|--------------|
+| `/gsd:workstreams` | Manage parallel workstreams (list, create, switch, status, progress, complete) |
 
 ### Code Quality
 
@@ -633,6 +661,9 @@ These spawn additional agents during planning/execution. They improve quality bu
 | `workflow.verifier` | `true` | Confirms must-haves were delivered after execution |
 | `workflow.auto_advance` | `false` | Auto-chain discuss → plan → execute without stopping |
 | `workflow.research_before_questions` | `false` | Run research before discussion questions instead of after |
+| `workflow.discuss_mode` | `'discuss'` | Discussion mode: `discuss` (interview), `assumptions` (codebase-first) |
+| `workflow.skip_discuss` | `false` | Skip discuss-phase in autonomous mode |
+| `workflow.text_mode` | `false` | Text-only mode for remote sessions (no TUI menus) |
 
 Use `/gsd:settings` to toggle these, or override per-invocation:
 - `/gsd:plan-phase --skip-research`

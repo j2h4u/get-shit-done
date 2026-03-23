@@ -3214,24 +3214,26 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
 
-    // Remove GSD hooks from PreToolUse (prompt injection guard)
-    if (settings.hooks && settings.hooks.PreToolUse) {
-      const before = settings.hooks.PreToolUse.length;
-      settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(entry => {
-        if (entry.hooks && Array.isArray(entry.hooks)) {
-          const hasGsdHook = entry.hooks.some(h =>
-            h.command && h.command.includes('gsd-prompt-guard')
-          );
-          return !hasGsdHook;
+    // Remove GSD hooks from PreToolUse and BeforeTool (Gemini uses BeforeTool)
+    for (const eventName of ['PreToolUse', 'BeforeTool']) {
+      if (settings.hooks && settings.hooks[eventName]) {
+        const before = settings.hooks[eventName].length;
+        settings.hooks[eventName] = settings.hooks[eventName].filter(entry => {
+          if (entry.hooks && Array.isArray(entry.hooks)) {
+            const hasGsdHook = entry.hooks.some(h =>
+              h.command && h.command.includes('gsd-prompt-guard')
+            );
+            return !hasGsdHook;
+          }
+          return true;
+        });
+        if (settings.hooks[eventName].length < before) {
+          settingsModified = true;
+          console.log(`  ${green}✓${reset} Removed prompt injection guard hook from settings`);
         }
-        return true;
-      });
-      if (settings.hooks.PreToolUse.length < before) {
-        settingsModified = true;
-        console.log(`  ${green}✓${reset} Removed prompt injection guard hook from settings`);
-      }
-      if (settings.hooks.PreToolUse.length === 0) {
-        delete settings.hooks.PreToolUse;
+        if (settings.hooks[eventName].length === 0) {
+          delete settings.hooks[eventName];
+        }
       }
     }
 
@@ -3668,12 +3670,14 @@ function install(isGlobal, runtime = 'claude') {
 
   // Path prefix for file references in markdown content (e.g. gsd-tools.cjs).
   // Replaces $HOME/.claude/ or ~/.claude/ so the result is <pathPrefix>get-shit-done/bin/...
-  // For global installs: use ~/ so paths work across environments (e.g. Docker
-  // containers mounting ~/.claude from a Windows host where os.homedir() differs).
+  // For global installs: use $HOME/ so paths expand correctly inside double-quoted
+  // shell commands (~ does NOT expand inside double quotes, causing MODULE_NOT_FOUND).
   // For local installs: use resolved absolute path (may be outside $HOME).
-  const pathPrefix = isGlobal
-    ? path.resolve(targetDir).replace(os.homedir(), '~').replace(/\\/g, '/') + '/'
-    : `${path.resolve(targetDir).replace(/\\/g, '/')}/`;
+  const resolvedTarget = path.resolve(targetDir).replace(/\\/g, '/');
+  const homeDir = os.homedir().replace(/\\/g, '/');
+  const pathPrefix = isGlobal && resolvedTarget.startsWith(homeDir)
+    ? '$HOME' + resolvedTarget.slice(homeDir.length) + '/'
+    : `${resolvedTarget}/`;
 
   let runtimeLabel = 'Claude Code';
   if (isOpencode) runtimeLabel = 'OpenCode';
@@ -4117,7 +4121,8 @@ function install(isGlobal, runtime = 'claude') {
     }
 
     // Configure PreToolUse hook for prompt injection detection
-    const preToolEvent = 'PreToolUse';
+    // Gemini and Antigravity use BeforeTool instead of PreToolUse for pre-tool hooks
+    const preToolEvent = (runtime === 'gemini' || runtime === 'antigravity') ? 'BeforeTool' : 'PreToolUse';
     if (!settings.hooks[preToolEvent]) {
       settings.hooks[preToolEvent] = [];
     }
@@ -4283,6 +4288,17 @@ function promptRuntime(callback) {
     }
   });
 
+  const runtimeMap = {
+    '1': 'claude',
+    '2': 'opencode',
+    '3': 'gemini',
+    '4': 'codex',
+    '5': 'copilot',
+    '6': 'antigravity',
+    '7': 'cursor'
+  };
+  const allRuntimes = ['claude', 'opencode', 'gemini', 'codex', 'copilot', 'antigravity', 'cursor'];
+
   console.log(`  ${yellow}Which runtime(s) would you like to install for?${reset}\n\n  ${cyan}1${reset}) Claude Code  ${dim}(~/.claude)${reset}
   ${cyan}2${reset}) OpenCode     ${dim}(~/.config/opencode)${reset} - open source, free models
   ${cyan}3${reset}) Gemini       ${dim}(~/.gemini)${reset}
@@ -4291,29 +4307,32 @@ function promptRuntime(callback) {
   ${cyan}6${reset}) Antigravity  ${dim}(~/.gemini/antigravity)${reset}
   ${cyan}7${reset}) Cursor       ${dim}(~/.cursor)${reset}
   ${cyan}8${reset}) All
+
+  ${dim}Select multiple: 1,4,6 or 1 4 6${reset}
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
     answered = true;
     rl.close();
-    const choice = answer.trim() || '1';
-    if (choice === '8') {
-      callback(['claude', 'opencode', 'gemini', 'codex', 'copilot', 'antigravity', 'cursor']);
-    } else if (choice === '7') {
-      callback(['cursor']);
-    } else if (choice === '6') {
-      callback(['antigravity']);
-    } else if (choice === '5') {
-      callback(['copilot']);
-    } else if (choice === '4') {
-      callback(['codex']);
-    } else if (choice === '3') {
-      callback(['gemini']);
-    } else if (choice === '2') {
-      callback(['opencode']);
-    } else {
-      callback(['claude']);
+    const input = answer.trim() || '1';
+
+    // "All" shortcut
+    if (input === '8') {
+      callback(allRuntimes);
+      return;
     }
+
+    // Parse comma-separated, space-separated, or single choice
+    const choices = input.split(/[\s,]+/).filter(Boolean);
+    const selected = [];
+    for (const c of choices) {
+      const runtime = runtimeMap[c];
+      if (runtime && !selected.includes(runtime)) {
+        selected.push(runtime);
+      }
+    }
+
+    callback(selected.length > 0 ? selected : ['claude']);
   });
 }
 
