@@ -11,17 +11,6 @@ const { spawn } = require('child_process');
 const homeDir = os.homedir();
 const cwd = process.cwd();
 
-// Compare semver: true if a > b (a is newer than b)
-function isNewer(a, b) {
-  const pa = (a || '').split('.').map(Number);
-  const pb = (b || '').split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] || 0) > (pb[i] || 0)) return true;
-    if ((pa[i] || 0) < (pb[i] || 0)) return false;
-  }
-  return false;
-}
-
 // Detect runtime config directory (supports Claude, OpenCode, Kilo, Gemini)
 // Respects CLAUDE_CONFIG_DIR for custom config directory setups
 function detectConfigDir(baseDir) {
@@ -61,6 +50,18 @@ const child = spawn(process.execPath, ['-e', `
   const path = require('path');
   const { execSync } = require('child_process');
 
+  // Compare semver: true if a > b (a is strictly newer than b)
+  // Strips pre-release suffixes (e.g. '3-beta.1' → '3') to avoid NaN from Number()
+  function isNewer(a, b) {
+    const pa = (a || '').split('.').map(s => Number(s.replace(/-.*/, '')) || 0);
+    const pb = (b || '').split('.').map(s => Number(s.replace(/-.*/, '')) || 0);
+    for (let i = 0; i < 3; i++) {
+      if (pa[i] > pb[i]) return true;
+      if (pa[i] < pb[i]) return false;
+    }
+    return false;
+  }
+
   const cacheFile = ${JSON.stringify(cacheFile)};
   const projectVersionFile = ${JSON.stringify(projectVersionFile)};
   const globalVersionFile = ${JSON.stringify(globalVersionFile)};
@@ -92,7 +93,7 @@ const child = spawn(process.execPath, ['-e', `
             const versionMatch = content.match(/\\/\\/ gsd-hook-version:\\s*(.+)/);
             if (versionMatch) {
               const hookVersion = versionMatch[1].trim();
-              if (hookVersion !== installed && !hookVersion.includes('{{')) {
+              if (isNewer(installed, hookVersion) && !hookVersion.includes('{{')) {
                 staleHooks.push({ file: hookFile, hookVersion, installedVersion: installed });
               }
             } else {
