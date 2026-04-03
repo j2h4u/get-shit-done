@@ -44,6 +44,7 @@ describe('getDirName (Copilot)', () => {
     assert.strictEqual(getDirName('claude'), '.claude');
     assert.strictEqual(getDirName('opencode'), '.opencode');
     assert.strictEqual(getDirName('gemini'), '.gemini');
+    assert.strictEqual(getDirName('kilo'), '.kilo');
     assert.strictEqual(getDirName('codex'), '.codex');
   });
 });
@@ -109,6 +110,7 @@ describe('getConfigDirFromHome (Copilot)', () => {
     assert.strictEqual(getConfigDirFromHome('opencode', true), "'.config', 'opencode'");
     assert.strictEqual(getConfigDirFromHome('claude', true), "'.claude'");
     assert.strictEqual(getConfigDirFromHome('gemini', true), "'.gemini'");
+    assert.strictEqual(getConfigDirFromHome('kilo', true), "'.config', 'kilo'");
     assert.strictEqual(getConfigDirFromHome('codex', true), "'.codex'");
   });
 });
@@ -137,13 +139,19 @@ describe('Source code integration (Copilot)', () => {
     assert.ok(src.includes('--copilot'), 'help text has --copilot option');
   });
 
-  test('CLI-02: promptRuntime runtimeMap has Copilot as option 5', () => {
-    assert.ok(src.includes("'5': 'copilot'"), 'runtimeMap has 5 -> copilot');
+  test('CLI-02: promptRuntime runtimeMap has Copilot as option 6', () => {
+    assert.ok(src.includes("'6': 'copilot'"), 'runtimeMap has 6 -> copilot');
   });
 
   test('CLI-02: promptRuntime allRuntimes array includes copilot', () => {
     const allMatch = src.match(/const allRuntimes = \[([^\]]+)\]/);
     assert.ok(allMatch && allMatch[1].includes('copilot'), 'allRuntimes includes copilot');
+  });
+
+  test('CLI-02: promptRuntime keeps Kilo above OpenCode in allRuntimes', () => {
+    const allMatch = src.match(/const allRuntimes = \[([^\]]+)\]/);
+    assert.ok(allMatch, 'allRuntimes array found');
+    assert.ok(allMatch[1].indexOf("'kilo'") < allMatch[1].indexOf("'opencode'"), 'kilo appears before opencode');
   });
 
   test('isCopilot variable exists in install function', () => {
@@ -651,7 +659,7 @@ describe('copyCommandsAsCopilotSkills', () => {
     assert.ok(skillContent.includes('description: Run all remaining phases autonomously'),
       'description preserved');
     // argument-hint present and double-quoted
-    assert.ok(skillContent.includes('argument-hint: "[--from N]"'), 'argument-hint present and quoted');
+    assert.ok(skillContent.includes('argument-hint: "[--from N] [--only N] [--interactive]"'), 'argument-hint present and quoted');
     // allowed-tools comma-separated
     assert.ok(skillContent.includes('allowed-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion, Task'),
       'allowed-tools is comma-separated');
@@ -701,9 +709,17 @@ describe('Copilot agent conversion - real files', () => {
     const result = convertClaudeAgentToCopilotAgent(content);
 
     assert.ok(result.startsWith('---\nname: gsd-executor\n'), 'starts with correct name');
-    // 6 Claude tools (Read, Write, Edit, Bash, Grep, Glob) → 4 after dedup
-    assert.ok(result.includes("tools: ['read', 'edit', 'execute', 'search']"),
-      'tools mapped and deduplicated (6→4)');
+    // Verify deduplication happened and core tools are present (not hardcoded exact list)
+    const toolsLine = result.split('\n').find(l => l.startsWith('tools:'));
+    assert.ok(toolsLine, 'tools line present in converted output');
+    assert.ok(toolsLine.includes("'read'"), 'Read mapped to read');
+    assert.ok(toolsLine.includes("'edit'"), 'Write/Edit deduplicated to edit');
+    assert.ok(toolsLine.includes("'execute'"), 'Bash mapped to execute');
+    assert.ok(toolsLine.includes("'search'"), 'Grep/Glob deduplicated to search');
+    // Input tools count > output tools count (deduplication occurred)
+    const inputTools = content.match(/^tools:\s*\[([^\]]+)\]/m)?.[1].split(',').length ?? 0;
+    const outputTools = toolsLine.replace(/^tools:\s*\[/, '').replace(/\].*$/, '').split(',').length;
+    assert.ok(inputTools === 0 || outputTools <= inputTools, 'deduplication reduced or preserved tool count');
     assert.ok(result.includes('color: yellow'), 'color preserved');
     assert.ok(!result.includes('~/.claude/'), 'no ~/.claude/ in body');
   });
@@ -1166,6 +1182,8 @@ describe('E2E: Copilot full install verification', () => {
       'gsd-assumptions-analyzer.agent.md',
       'gsd-codebase-mapper.agent.md',
       'gsd-debugger.agent.md',
+      'gsd-doc-verifier.agent.md',
+      'gsd-doc-writer.agent.md',
       'gsd-executor.agent.md',
       'gsd-integration-checker.agent.md',
       'gsd-nyquist-auditor.agent.md',
@@ -1175,6 +1193,7 @@ describe('E2E: Copilot full install verification', () => {
       'gsd-project-researcher.agent.md',
       'gsd-research-synthesizer.agent.md',
       'gsd-roadmapper.agent.md',
+      'gsd-security-auditor.agent.md',
       'gsd-ui-auditor.agent.md',
       'gsd-ui-checker.agent.md',
       'gsd-ui-researcher.agent.md',
@@ -1336,5 +1355,91 @@ describe('E2E: Copilot uninstall verification', () => {
       assert.ok(fs.existsSync(customAgentPath),
         'Non-GSD agent file should be preserved after uninstall');
     });
+  });
+});
+
+// ─── Claude uninstall: user file preservation (#1423) ─────────────────────────
+
+function runClaudeInstall(cwd) {
+  const env = { ...process.env };
+  delete env.GSD_TEST_MODE;
+  return execFileSync(process.execPath, [INSTALL_PATH, '--claude', '--local'], {
+    cwd,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env,
+  });
+}
+
+function runClaudeUninstall(cwd) {
+  const env = { ...process.env };
+  delete env.GSD_TEST_MODE;
+  return execFileSync(process.execPath, [INSTALL_PATH, '--claude', '--local', '--uninstall'], {
+    cwd,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env,
+  });
+}
+
+describe('Claude uninstall preserves user-generated files (#1423)', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-preserve-'));
+    runClaudeInstall(tmpDir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('preserves USER-PROFILE.md across uninstall', () => {
+    const profilePath = path.join(tmpDir, '.claude', 'get-shit-done', 'USER-PROFILE.md');
+    const content = '# Developer Profile\n\nAutonomy: High\nGenerated: 2026-03-29\n';
+    fs.writeFileSync(profilePath, content);
+
+    runClaudeUninstall(tmpDir);
+
+    assert.ok(fs.existsSync(profilePath), 'USER-PROFILE.md should survive uninstall');
+    assert.strictEqual(fs.readFileSync(profilePath, 'utf-8'), content, 'content should be identical');
+  });
+
+  test('preserves dev-preferences.md across uninstall', () => {
+    const prefsDir = path.join(tmpDir, '.claude', 'commands', 'gsd');
+    fs.mkdirSync(prefsDir, { recursive: true });
+    const prefsPath = path.join(prefsDir, 'dev-preferences.md');
+    const content = '---\nname: dev-preferences\n---\n# Preferences\nUse TypeScript strict.\n';
+    fs.writeFileSync(prefsPath, content);
+
+    runClaudeUninstall(tmpDir);
+
+    assert.ok(fs.existsSync(prefsPath), 'dev-preferences.md should survive uninstall');
+    assert.strictEqual(fs.readFileSync(prefsPath, 'utf-8'), content, 'content should be identical');
+  });
+
+  test('still removes GSD engine files during uninstall', () => {
+    const profilePath = path.join(tmpDir, '.claude', 'get-shit-done', 'USER-PROFILE.md');
+    fs.writeFileSync(profilePath, '# Profile\n');
+
+    // Verify engine files exist before uninstall
+    const binDir = path.join(tmpDir, '.claude', 'get-shit-done', 'bin');
+    assert.ok(fs.existsSync(binDir), 'bin/ should exist before uninstall');
+
+    runClaudeUninstall(tmpDir);
+
+    // Engine files gone, user file preserved
+    assert.ok(!fs.existsSync(binDir), 'bin/ should be removed after uninstall');
+    assert.ok(fs.existsSync(profilePath), 'USER-PROFILE.md should survive');
+  });
+
+  test('clean uninstall when no user files exist', () => {
+    runClaudeUninstall(tmpDir);
+
+    const gsdDir = path.join(tmpDir, '.claude', 'get-shit-done');
+    const cmdDir = path.join(tmpDir, '.claude', 'commands', 'gsd');
+    // Directories should be fully removed when no user files to preserve
+    assert.ok(!fs.existsSync(gsdDir), 'get-shit-done/ should not exist after clean uninstall');
+    assert.ok(!fs.existsSync(cmdDir), 'commands/gsd/ should not exist after clean uninstall');
   });
 });

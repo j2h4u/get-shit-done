@@ -4,7 +4,7 @@
 
 [English](README.md) · **Português** · [简体中文](README.zh-CN.md) · [日本語](README.ja-JP.md)
 
-**Um sistema leve e poderoso de meta-prompting, engenharia de contexto e desenvolvimento orientado a especificação para Claude Code, OpenCode, Gemini CLI, Codex, Copilot, Cursor e Antigravity.**
+**Um sistema leve e poderoso de meta-prompting, engenharia de contexto e desenvolvimento orientado a especificação para Claude Code, OpenCode, Gemini CLI, Kilo, Codex, Copilot, Cursor, Windsurf, Antigravity e Augment.**
 
 **Resolve context rot — a degradação de qualidade que acontece conforme o Claude enche a janela de contexto.**
 
@@ -71,6 +71,8 @@ O GSD corrige isso. É a camada de engenharia de contexto que torna o Claude Cod
 
 Para quem quer descrever o que precisa e receber isso construído do jeito certo — sem fingir que está rodando uma engenharia de 50 pessoas.
 
+Quality gates embutidos capturam problemas reais: detecção de schema drift sinaliza mudanças ORM sem migrations, segurança ancora verificação a modelos de ameaça, e detecção de redução de escopo impede o planner de descartar requisitos silenciosamente.
+
 ---
 
 ## Primeiros passos
@@ -80,12 +82,13 @@ npx get-shit-done-cc@latest
 ```
 
 O instalador pede:
-1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, Copilot, Cursor, Antigravity, ou todos
+1. **Runtime** — Claude Code, OpenCode, Gemini, Kilo, Codex, Copilot, Cursor, Antigravity, ou todos
 2. **Local** — Global (todos os projetos) ou local (apenas projeto atual)
 
 Verifique com:
 - Claude Code / Gemini: `/gsd:help`
 - OpenCode: `/gsd-help`
+- Kilo: `/gsd-help`
 - Codex: `$gsd-help`
 - Copilot: `/gsd:help`
 - Antigravity: `/gsd:help`
@@ -113,6 +116,10 @@ npx get-shit-done-cc --opencode --global
 # Gemini CLI
 npx get-shit-done-cc --gemini --global
 
+# Kilo
+npx get-shit-done-cc --kilo --global
+npx get-shit-done-cc --kilo --local
+
 # Codex
 npx get-shit-done-cc --codex --global
 npx get-shit-done-cc --codex --local
@@ -134,7 +141,7 @@ npx get-shit-done-cc --all --global
 ```
 
 Use `--global` (`-g`) ou `--local` (`-l`) para pular a pergunta de local.
-Use `--claude`, `--opencode`, `--gemini`, `--codex`, `--copilot`, `--cursor`, `--antigravity` ou `--all` para pular a pergunta de runtime.
+Use `--claude`, `--opencode`, `--gemini`, `--kilo`, `--codex`, `--copilot`, `--cursor`, `--antigravity` ou `--all` para pular a pergunta de runtime.
 
 </details>
 
@@ -290,7 +297,7 @@ Cada tarefa gera commit próprio, facilitando `git bisect`, rollback e rastreabi
 | Comando | O que faz |
 |---------|-----------|
 | `/gsd:new-project [--auto]` | Inicializa projeto completo |
-| `/gsd:discuss-phase [N] [--auto] [--analyze]` | Captura decisões antes do plano |
+| `/gsd:discuss-phase [N] [--auto] [--analyze] [--chain]` | Captura decisões antes do plano (`--chain` encadeia automaticamente em plan+execute) |
 | `/gsd:plan-phase [N] [--auto] [--reviews]` | Pesquisa + plano + validação |
 | `/gsd:execute-phase <N>` | Executa planos em ondas paralelas |
 | `/gsd:verify-work [N]` | UAT manual |
@@ -308,7 +315,7 @@ Cada tarefa gera commit próprio, facilitando `git bisect`, rollback e rastreabi
 | `/gsd:pr-branch` | Cria branch limpa para PR |
 | `/gsd:settings` | Configura perfis e agentes |
 | `/gsd:set-profile <profile>` | Troca perfil (quality/balanced/budget/inherit) |
-| `/gsd:quick [--full] [--discuss] [--research]` | Execução rápida com garantias do GSD |
+| `/gsd:quick [--full] [--discuss] [--research]` | Execução rápida com garantias do GSD (`--full` ativa todas as etapas, `--validate` ativa apenas verificação) |
 | `/gsd:health [--repair]` | Verifica e repara `.planning/` |
 
 > Para a lista completa de comandos e opções, use `/gsd:help`.
@@ -399,6 +406,7 @@ CLAUDE_CONFIG_DIR=/home/youruser/.claude npx get-shit-done-cc --global
 npx get-shit-done-cc --claude --global --uninstall
 npx get-shit-done-cc --opencode --global --uninstall
 npx get-shit-done-cc --gemini --global --uninstall
+npx get-shit-done-cc --kilo --global --uninstall
 npx get-shit-done-cc --codex --global --uninstall
 npx get-shit-done-cc --copilot --global --uninstall
 npx get-shit-done-cc --cursor --global --uninstall
@@ -408,6 +416,7 @@ npx get-shit-done-cc --antigravity --global --uninstall
 npx get-shit-done-cc --claude --local --uninstall
 npx get-shit-done-cc --opencode --local --uninstall
 npx get-shit-done-cc --gemini --local --uninstall
+npx get-shit-done-cc --kilo --local --uninstall
 npx get-shit-done-cc --codex --local --uninstall
 npx get-shit-done-cc --copilot --local --uninstall
 npx get-shit-done-cc --cursor --local --uninstall
@@ -418,7 +427,7 @@ npx get-shit-done-cc --antigravity --local --uninstall
 
 ## Community Ports
 
-OpenCode, Gemini CLI e Codex agora são suportados nativamente via `npx get-shit-done-cc`.
+OpenCode, Gemini CLI, Kilo e Codex agora são suportados nativamente via `npx get-shit-done-cc`.
 
 | Projeto | Plataforma | Descrição |
 |---------|------------|-----------|

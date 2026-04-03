@@ -1,7 +1,7 @@
 ---
 name: gsd:discuss-phase
-description: Gather phase context through adaptive questioning before planning. Use --auto to skip interactive questions (Claude picks recommended defaults).
-argument-hint: "<phase> [--auto] [--batch] [--analyze] [--text]"
+description: Gather phase context through adaptive questioning before planning. Use --auto to skip interactive questions (Claude picks recommended defaults). Use --chain for interactive discuss followed by automatic plan+execute.
+argument-hint: "<phase> [--auto] [--chain] [--batch] [--analyze] [--text]"
 allowed-tools:
   - Read
   - Write
@@ -33,6 +33,10 @@ Extract implementation decisions that downstream agents need — researcher and 
 @~/.claude/get-shit-done/workflows/discuss-phase-assumptions.md
 @~/.claude/get-shit-done/templates/context.md
 </execution_context>
+
+<runtime_note>
+**Copilot (VS Code):** Use `vscode_askquestions` wherever this workflow calls `AskUserQuestion`. They are equivalent — `vscode_askquestions` is the VS Code Copilot implementation of the same interactive question API.
+</runtime_note>
 
 <context>
 Phase number: $ARGUMENTS (required)

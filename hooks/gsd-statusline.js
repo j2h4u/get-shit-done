@@ -144,7 +144,10 @@ process.stdin.on('end', () => {
 
       // Write context metrics to bridge file for the context-monitor PostToolUse hook.
       // The monitor reads this file to inject agent-facing warnings when context is low.
-      if (session) {
+      // Reject session IDs with path separators or traversal sequences to prevent
+      // a malicious session_id from writing files outside the temp directory.
+      const sessionSafe = session && !/[/\\]|\.\./.test(session);
+      if (sessionSafe) {
         try {
           const bridgePath = path.join(os.tmpdir(), `claude-ctx-${session}.json`);
           const bridgeData = JSON.stringify({
@@ -219,8 +222,12 @@ process.stdin.on('end', () => {
     const gsdStateStr = task ? '' : formatGsdState(readGsdState(dir) || {});
 
     // GSD update available?
-    let gsdUpdate = null;
-    const cacheFile = path.join(claudeDir, 'cache', 'gsd-update-check.json');
+    // Check shared cache first (#1421), fall back to runtime-specific cache for
+    // backward compatibility with older gsd-check-update.js versions.
+    let gsdUpdate = '';
+    const sharedCacheFile = path.join(homeDir, '.cache', 'gsd', 'gsd-update-check.json');
+    const legacyCacheFile = path.join(claudeDir, 'cache', 'gsd-update-check.json');
+    const cacheFile = fs.existsSync(sharedCacheFile) ? sharedCacheFile : legacyCacheFile;
     if (fs.existsSync(cacheFile)) {
       try {
         const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
