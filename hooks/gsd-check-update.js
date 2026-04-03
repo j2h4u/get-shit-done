@@ -11,6 +11,17 @@ const { spawn } = require('child_process');
 const homeDir = os.homedir();
 const cwd = process.cwd();
 
+// Compare semver: true if a > b (a is newer than b)
+function isNewer(a, b) {
+  const pa = (a || '').split('.').map(Number);
+  const pb = (b || '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true;
+    if ((pa[i] || 0) < (pb[i] || 0)) return false;
+  }
+  return false;
+}
+
 // Detect runtime config directory (supports Claude, OpenCode, Kilo, Gemini)
 // Respects CLAUDE_CONFIG_DIR for custom config directory setups
 function detectConfigDir(baseDir) {
@@ -100,7 +111,7 @@ const child = spawn(process.execPath, ['-e', `
   } catch (e) {}
 
   const result = {
-    update_available: latest && installed !== latest,
+    update_available: latest && isNewer(latest, installed),
     installed,
     latest: latest || 'unknown',
     checked: Math.floor(Date.now() / 1000),
