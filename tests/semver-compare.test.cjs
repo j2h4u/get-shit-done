@@ -1,8 +1,16 @@
 /**
  * Tests for the isNewer() semver comparison function used in gsd-check-update.js.
  *
- * The function lives inside a spawn() template literal and cannot be imported.
- * We duplicate it here — if the implementation changes, these tests catch regressions.
+ * WHY DUPLICATED: isNewer() lives inside a template literal string passed to
+ * spawn(process.execPath, ['-e', `...`]) — it runs in a detached child process
+ * that has no access to the parent module scope. This means it cannot be
+ * require()'d or imported from a shared module. The function is intentionally
+ * inlined in the spawn string so it works in the child process context.
+ *
+ * We mirror the implementation here so the logic is testable. If the hook's
+ * implementation diverges from this copy, the fix is to update this mirror —
+ * not to restructure the hook (which would require changing the spawn pattern
+ * across the entire hook architecture).
  */
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
