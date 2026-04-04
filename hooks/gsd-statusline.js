@@ -1,122 +1,13 @@
 #!/usr/bin/env node
 // gsd-hook-version: {{GSD_VERSION}}
 // Claude Code Statusline - GSD Edition
-// Shows: model | current task (or GSD state) | directory | context usage
-//
-// Flags:
-//   --no-ctx    Suppress context progress bar (useful when compositing with
-//               another statusline that already shows context, e.g. OMCC)
-//   --no-model  Suppress model name
-//   --no-repo   Suppress repository/directory name
+// Shows: model | current task | directory | context usage
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const noCtx   = process.argv.includes('--no-ctx');
-const noModel = process.argv.includes('--no-model');
-const noRepo  = process.argv.includes('--no-repo');
-
-// --- GSD state reader -------------------------------------------------------
-
-/**
- * Walk up from dir looking for .planning/STATE.md.
- * Returns parsed state object or null.
- */
-function readGsdState(dir) {
-  const home = os.homedir();
-  let current = dir;
-  for (let i = 0; i < 10; i++) {
-    const candidate = path.join(current, '.planning', 'STATE.md');
-    if (fs.existsSync(candidate)) {
-      try {
-        return parseStateMd(fs.readFileSync(candidate, 'utf8'));
-      } catch (e) {
-        return null;
-      }
-    }
-    const parent = path.dirname(current);
-    if (parent === current || current === home) break;
-    current = parent;
-  }
-  return null;
-}
-
-/**
- * Parse STATE.md frontmatter + Phase line from body.
- * Returns { status, milestone, milestoneName, phaseNum, phaseTotal, phaseName }
- */
-function parseStateMd(content) {
-  const state = {};
-
-  // YAML frontmatter between --- markers
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-  if (fmMatch) {
-    for (const line of fmMatch[1].split('\n')) {
-      const m = line.match(/^(\w+):\s*(.+)/);
-      if (!m) continue;
-      const [, key, val] = m;
-      const v = val.trim().replace(/^["']|["']$/g, '');
-      if (key === 'status') state.status = v === 'null' ? null : v;
-      if (key === 'milestone') state.milestone = v === 'null' ? null : v;
-      if (key === 'milestone_name') state.milestoneName = v === 'null' ? null : v;
-    }
-  }
-
-  // Phase: N of M (name)  or  Phase: none active (...)
-  const phaseMatch = content.match(/^Phase:\s*(\d+)\s+of\s+(\d+)(?:\s+\(([^)]+)\))?/m);
-  if (phaseMatch) {
-    state.phaseNum = phaseMatch[1];
-    state.phaseTotal = phaseMatch[2];
-    state.phaseName = phaseMatch[3] || null;
-  }
-
-  // Fallback: parse Status: from body when frontmatter is absent
-  if (!state.status) {
-    const bodyStatus = content.match(/^Status:\s*(.+)/m);
-    if (bodyStatus) {
-      const raw = bodyStatus[1].trim().toLowerCase();
-      if (raw.includes('ready to plan') || raw.includes('planning')) state.status = 'planning';
-      else if (raw.includes('execut')) state.status = 'executing';
-      else if (raw.includes('complet') || raw.includes('archived')) state.status = 'complete';
-    }
-  }
-
-  return state;
-}
-
-/**
- * Format GSD state into display string.
- * Format: "v1.9 Code Quality · executing · fix-graphiti-deployment (1/5)"
- * Gracefully degrades when parts are missing.
- */
-function formatGsdState(s) {
-  const parts = [];
-
-  // Milestone: version + name (skip placeholder "milestone")
-  if (s.milestone || s.milestoneName) {
-    const ver = s.milestone || '';
-    const name = (s.milestoneName && s.milestoneName !== 'milestone') ? s.milestoneName : '';
-    const ms = [ver, name].filter(Boolean).join(' ');
-    if (ms) parts.push(ms);
-  }
-
-  // Status
-  if (s.status) parts.push(s.status);
-
-  // Phase
-  if (s.phaseNum && s.phaseTotal) {
-    const phase = s.phaseName
-      ? `${s.phaseName} (${s.phaseNum}/${s.phaseTotal})`
-      : `ph ${s.phaseNum}/${s.phaseTotal}`;
-    parts.push(phase);
-  }
-
-  return parts.join(' · ');
-}
-
-// --- stdin ------------------------------------------------------------------
-
+// Read JSON from stdin
 let input = '';
 // Timeout guard: if stdin doesn't close within 3s (e.g. pipe issues on
 // Windows/Git Bash), exit silently instead of hanging. See #775.
@@ -137,7 +28,7 @@ process.stdin.on('end', () => {
     // is 83.5% of the total window. We normalize to show 100% at that point.
     const AUTO_COMPACT_BUFFER_PCT = 16.5;
     let ctx = '';
-    if (!noCtx && remaining != null) {
+    if (remaining != null) {
       // Normalize: subtract buffer from remaining, scale to usable range
       const usableRemaining = Math.max(0, ((remaining - AUTO_COMPACT_BUFFER_PCT) / (100 - AUTO_COMPACT_BUFFER_PCT)) * 100);
       const used = Math.max(0, Math.min(100, Math.round(100 - usableRemaining)));
@@ -176,21 +67,6 @@ process.stdin.on('end', () => {
       } else {
         ctx = ` \x1b[5;31m💀 ${bar} ${used}%\x1b[0m`;
       }
-    } else if (noCtx && remaining != null) {
-      // --no-ctx: still write bridge file for context-monitor hook
-      const usableRemaining = Math.max(0, ((remaining - AUTO_COMPACT_BUFFER_PCT) / (100 - AUTO_COMPACT_BUFFER_PCT)) * 100);
-      const used = Math.max(0, Math.min(100, Math.round(100 - usableRemaining)));
-      if (session) {
-        try {
-          const bridgePath = path.join(os.tmpdir(), `claude-ctx-${session}.json`);
-          fs.writeFileSync(bridgePath, JSON.stringify({
-            session_id: session,
-            remaining_percentage: remaining,
-            used_pct: used,
-            timestamp: Math.floor(Date.now() / 1000)
-          }));
-        } catch (e) {}
-      }
     }
 
     // Current task from todos
@@ -218,9 +94,6 @@ process.stdin.on('end', () => {
       }
     }
 
-    // GSD state (milestone · status · phase) — shown when no todo task
-    const gsdStateStr = task ? '' : formatGsdState(readGsdState(dir) || {});
-
     // GSD update available?
     // Check shared cache first (#1421), fall back to runtime-specific cache for
     // backward compatibility with older gsd-check-update.js versions.
@@ -232,26 +105,21 @@ process.stdin.on('end', () => {
       try {
         const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
         if (cache.update_available) {
-          gsdUpdate = '\x1b[33m⬆ /gsd:update\x1b[0m';
+          gsdUpdate = '\x1b[33m⬆ /gsd-update\x1b[0m │ ';
         }
         if (cache.stale_hooks && cache.stale_hooks.length > 0) {
-          gsdUpdate += '\x1b[31m⚠ stale hooks — run /gsd:update\x1b[0m │ ';
+          gsdUpdate += '\x1b[31m⚠ stale hooks — run /gsd-update\x1b[0m │ ';
         }
       } catch (e) {}
     }
 
     // Output
     const dirname = path.basename(dir);
-    const modelPart = noModel ? null : `\x1b[2m${model}\x1b[0m`;
-    const repoPart  = noRepo  ? null : `\x1b[2m${dirname}\x1b[0m`;
-    const middle = task
-      ? `\x1b[1m${task}\x1b[0m`
-      : gsdStateStr
-        ? `\x1b[2m${gsdStateStr}\x1b[0m`
-        : null;
-
-    const segments = [gsdUpdate, modelPart, middle, repoPart].filter(Boolean);
-    process.stdout.write(segments.join(' │ ') + ctx);
+    if (task) {
+      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[1m${task}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+    } else {
+      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+    }
   } catch (e) {
     // Silent fail - don't break statusline on parse errors
   }
