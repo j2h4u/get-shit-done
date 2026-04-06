@@ -222,6 +222,29 @@ node gsd-tools.cjs config-set agent_skills.gsd-executor '["skills/my-skill"]'
 
 ---
 
+## Feature Flags
+
+Toggle optional capabilities via the `features.*` config namespace. Feature flags default to `false` (disabled) — enabling a flag opts into new behavior without affecting existing workflows.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `features.thinking_partner` | boolean | `false` | Enable thinking partner analysis at workflow decision points |
+| `features.global_learnings` | boolean | `false` | Enable cross-project learnings pipeline (auto-copy at phase completion, planner injection) |
+
+### Usage
+
+```bash
+# Enable a feature
+node gsd-tools.cjs config-set features.global_learnings true
+
+# Disable a feature
+node gsd-tools.cjs config-set features.thinking_partner false
+```
+
+The `features.*` namespace is a dynamic key pattern — new feature flags can be added without modifying `VALID_CONFIG_KEYS`. Any key matching `features.<name>` is accepted by the config system.
+
+---
+
 ## Parallelization Settings
 
 | Setting | Type | Default | Description |
@@ -425,7 +448,7 @@ The intent is the same as the Claude profile tiers -- use a stronger model for p
 | Value | Behavior | Use When |
 |-------|----------|----------|
 | `false` (default) | Returns Claude aliases (`opus`, `sonnet`, `haiku`) | Claude Code with native Anthropic API |
-| `true` | Maps aliases to full Claude model IDs (`claude-opus-4-0`) | Claude Code with API that requires full IDs |
+| `true` | Maps aliases to full Claude model IDs (`claude-opus-4-6`) | Claude Code with API that requires full IDs |
 | `"omit"` | Returns empty string (runtime picks its default) | Non-Claude runtimes (Codex, OpenCode, Gemini CLI, Kilo) |
 
 ### Profile Philosophy

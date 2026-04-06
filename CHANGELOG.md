@@ -6,6 +6,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Execution context profiles** — Three context profiles (`dev`, `research`, `review`) for mode-specific agent output guidance (#1807)
+
+## [1.33.0] - 2026-04-05
+
+### Added
+- **Queryable codebase intelligence system** -- Persistent `.planning/intel/` store with structured JSON files (files, exports, symbols, patterns, dependencies). Query via `gsd-tools intel` subcommands. Incremental updates via `gsd-intel-updater` agent. Opt-in; projects without intel store are unaffected. (#1688)
+- **Shared behavioral references** — Add questioning, domain-probes, and UI-brand reference docs wired into workflows (#1658)
+- **Chore / Maintenance issue template** — Structured template for internal maintenance tasks (#1689)
+- **Typed contribution templates** — Separate Bug, Enhancement, and Feature issue/PR templates with approval gates (#1673)
+- **MODEL_ALIAS_MAP regression test** — Ensures model aliases stay current (#1698)
+
+### Changed
+- **CONFIG_DEFAULTS constant** — Deduplicate config defaults into single source of truth in core.cjs (#1708)
+- **Test standardization** — All tests migrated to `node:assert/strict` and `t.after()` cleanup per CONTRIBUTING.md (#1675)
+- **CI matrix** — Drop Windows runner, add static hardcoded-path detection (#1676)
+
+### Fixed
+- **Kilo path replacement** — `copyFlattenedCommands` now applies path replacement for Kilo runtime (#1710)
+- **Prompt guard injection pattern** — Add missing 'act as' pattern to hook (#1697)
+- **Frontmatter inline array parser** — Respect quoted commas in array values (REG-04) (#1695)
+- **Cross-platform planning lock** — Replace shell `sleep` with `Atomics.wait` for Windows compatibility (#1693)
+- **MODEL_ALIAS_MAP** — Update to current Claude model IDs: opus→claude-opus-4-6, sonnet→claude-sonnet-4-6, haiku→claude-haiku-4-5 (#1691)
+- **Skill path replacement** — `copyCommandsAsClaudeSkills` now applies path replacement correctly (#1677)
+- **Runtime detection for /gsd-review** — Environment-based detection instead of hardcoded paths (#1463)
+- **Marketing text in runtime prompt** — Remove marketing taglines from runtime selection (#1672, #1655)
+- **Discord invite link** — Update from vanity URL to permanent invite link (#1648)
+
+### Documentation
+- **COMMANDS.md** — Add /gsd-secure-phase and /gsd-docs-update (#1706)
+- **AGENTS.md** — Add 3 missing agents, fix stale counts (#1703)
+- **ARCHITECTURE.md** — Update component counts and missing entries (#1701)
+- **Localized documentation** — Full v1.32.0 audit for all language READMEs
+
 ## [1.32.0] - 2026-04-04
 
 ### Added
@@ -123,7 +157,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.29.0] - 2026-03-25
 
 ### Added
-- **Windsurf runtime support** — Full installation and command conversion for Windsurf (Codeium)
+- **Windsurf runtime support** — Full installation and command conversion for Windsurf
 - **Agent skill injection** — Inject project-specific skills into subagents via `agent_skills` config section
 - **UI-phase and UI-review steps** in autonomous workflow
 - **Security scanning CI** — Prompt injection, base64, and secret scanning workflows
