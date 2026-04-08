@@ -168,27 +168,6 @@ AskUserQuestion([
 ```
 </step>
 
-<step name="validate_answers">
-**CRITICAL:** After AskUserQuestion returns, validate that answers are non-empty.
-
-If **any** answer value is empty string or missing (the result shows `"User has answered your questions: ."` with no key=value pairs), this means the UI failed to display the questions — the user never saw them.
-
-**On empty answers:**
-1. Display warning: `⚠ Settings questions were not displayed. This can happen in heavy context sessions. Retrying...`
-2. Retry AskUserQuestion **once** with the same questions
-3. If still empty on retry: display error and abort:
-```
-╔══════════════════════════════════════════════════════════════╗
-║  ERROR                                                       ║
-╚══════════════════════════════════════════════════════════════╝
-
-Settings questions failed to display twice. This is likely a UI issue
-in a heavy context session.
-
-**To fix:** Run /clear first, then /gsd-settings
-```
-</step>
-
 <step name="update_config">
 Merge new settings into existing config.json:
 
