@@ -185,7 +185,7 @@ If **any** answer value is empty string or missing (the result shows `"User has 
 Settings questions failed to display twice. This is likely a UI issue
 in a heavy context session.
 
-**To fix:** Run /clear first, then /gsd:settings
+**To fix:** Run /clear first, then /gsd-settings
 ```
 </step>
 
