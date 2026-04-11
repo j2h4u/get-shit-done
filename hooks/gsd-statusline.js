@@ -16,7 +16,6 @@ const os = require('os');
 const noCtx   = process.argv.includes('--no-ctx');
 const noModel = process.argv.includes('--no-model');
 const noRepo  = process.argv.includes('--no-repo');
-
 // --- GSD state reader -------------------------------------------------------
 
 /**
@@ -117,13 +116,14 @@ function formatGsdState(s) {
 
 // --- stdin ------------------------------------------------------------------
 
-let input = '';
-// Timeout guard: if stdin doesn't close within 3s (e.g. pipe issues on
-// Windows/Git Bash), exit silently instead of hanging. See #775.
-const stdinTimeout = setTimeout(() => process.exit(0), 3000);
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', () => {
+function runStatusline() {
+  let input = '';
+  // Timeout guard: if stdin doesn't close within 3s (e.g. pipe issues on
+  // Windows/Git Bash), exit silently instead of hanging. See #775.
+  const stdinTimeout = setTimeout(() => process.exit(0), 3000);
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', chunk => input += chunk);
+  process.stdin.on('end', () => {
   clearTimeout(stdinTimeout);
   try {
     const data = JSON.parse(input);
@@ -258,3 +258,9 @@ process.stdin.on('end', () => {
     // Silent fail - don't break statusline on parse errors
   }
 });
+}
+
+// Export helpers for unit tests. Harmless when run as a script.
+module.exports = { readGsdState, parseStateMd, formatGsdState };
+
+if (require.main === module) runStatusline();
