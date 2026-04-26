@@ -1015,6 +1015,74 @@ describe('phaseComplete', () => {
     // By Phase table should have a row for phase 10
     expect(state).toMatch(/\|\s*10\s*\|\s*3\s*\|/);
   });
+
+  it('does not overwrite plan checkbox when **Plans:** is on its own line (regression #2728)', async () => {
+    const { phaseComplete } = await import('./phase-lifecycle.js');
+
+    const roadmap = [
+      '# Roadmap',
+      '',
+      '## Current Milestone: v3.0',
+      '',
+      '- [ ] Phase 7: marketing-landing-v2',
+      '',
+      '### Phase 7: marketing-landing-v2',
+      '',
+      '**Goal:** Landing page',
+      '**Plans:**',
+      '- [x] 07-01-cherry-pick-foundation-PLAN.md — Wave 1',
+      '- [x] 07-02-routing-auth-seo-PLAN.md — Wave 2',
+      '',
+      '### Phase 8: p3-nice-to-haves',
+      '',
+      '**Goal:** Nice to haves',
+      '**Plans:** 3 plans',
+      '',
+    ].join('\n');
+
+    const state = [
+      '---',
+      'gsd_state_version: 1.0',
+      'milestone: v3.0',
+      'status: executing',
+      'progress:',
+      '  total_phases: 2',
+      '  completed_phases: 0',
+      '  total_plans: 4',
+      '  completed_plans: 2',
+      '  percent: 50',
+      '---',
+      '',
+      '# Project State',
+      '',
+      'Phase: 7 of 2 — EXECUTING',
+      'Status: Executing Phase 7',
+    ].join('\n');
+
+    await setupTestProject(tmpDir, {
+      roadmap,
+      state,
+      phases: ['07-marketing-landing-v2', '08-p3-nice-to-haves'],
+    });
+
+    const p7Dir = join(tmpDir, '.planning', 'phases', '07-marketing-landing-v2');
+    await writeFile(join(p7Dir, '07-01-PLAN.md'), 'plan1', 'utf-8');
+    await writeFile(join(p7Dir, '07-02-PLAN.md'), 'plan2', 'utf-8');
+    await writeFile(join(p7Dir, '07-01-SUMMARY.md'), 'summary1', 'utf-8');
+    await writeFile(join(p7Dir, '07-02-SUMMARY.md'), 'summary2', 'utf-8');
+
+    await phaseComplete(['7'], tmpDir);
+
+    const updated = await readFile(join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+
+    // The plan lines must NOT be replaced with "N/N plans complete"
+    expect(updated).toContain('07-01-cherry-pick-foundation-PLAN.md');
+    expect(updated).toContain('07-02-routing-auth-seo-PLAN.md');
+    expect(updated).not.toMatch(/^2\/2 plans complete/m);
+
+    // Phase 8's **Plans:** line must NOT be touched
+    expect(updated).toContain('**Plans:** 3 plans');
+  });
 });
 
 // ─── phasesClear ────────────────────────────────────────────────────────────

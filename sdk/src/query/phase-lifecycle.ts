@@ -1194,7 +1194,7 @@ export const phaseComplete: QueryHandler = async (args, projectDir, workstream) 
 
       // Update plan count in phase section
       const planCountPattern = new RegExp(
-        `(#{2,4}\\s*Phase\\s+${phaseEscaped}[\\s\\S]*?\\*\\*Plans:\\*\\*\\s*)[^\\n]+`,
+        `(#{2,4}\\s*Phase\\s+${phaseEscaped}(?:(?!\\n#{2,4})[\\s\\S])*?\\*\\*Plans:\\*\\*[ \\t]*)[^\\n]+`,
         'i',
       );
       roadmapContent = replaceInCurrentMilestone(
