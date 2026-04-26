@@ -209,7 +209,7 @@ export const phaseAdd: QueryHandler = async (args, projectDir, workstream) => {
           const entries = await readdir(phasesDir, { withFileTypes: true });
           for (const entry of entries) {
             if (!entry.isDirectory()) continue;
-            const dirMatch = /^(\d+)[A-Z]?(?:\.\d+)*-/.exec(entry.name);
+            const dirMatch = /^(?:[A-Z][A-Z0-9]*-)?(\d+)[A-Z]?(?:\.\d+)*-/i.exec(entry.name);
             if (dirMatch) {
               const num = parseInt(dirMatch[1], 10);
               if (num >= 999) continue;

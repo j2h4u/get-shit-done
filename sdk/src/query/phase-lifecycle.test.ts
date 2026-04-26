@@ -316,6 +316,29 @@ describe('phaseAdd', () => {
     // Should detect phases 45 and 46 on disk, so new phase = 47
     expect(data.phase_number).toBe(47);
   });
+
+  it('filesystem fallback handles project-code-prefixed phase directories (regression coderabbit)', async () => {
+    const { phaseAdd } = await import('./phase-lifecycle.js');
+
+    const roadmap = '# Roadmap\n\n## Current Milestone: v5.0\n\nSome content\n';
+
+    await setupTestProject(tmpDir, {
+      roadmap,
+      state: MINIMAL_STATE,
+      phases: [],
+    });
+
+    // Create prefixed directories manually (project_code = "CK" scenario)
+    const phasesDir = join(tmpDir, '.planning', 'phases');
+    await mkdir(join(phasesDir, 'CK-45-legacy-phase'), { recursive: true });
+    await mkdir(join(phasesDir, 'CK-46-another-phase'), { recursive: true });
+
+    const result = await phaseAdd(['new-feature'], tmpDir);
+    const data = result.data as Record<string, unknown>;
+
+    // Should detect CK-45 and CK-46, so new phase = 47
+    expect(data.phase_number).toBe(47);
+  });
 });
 
 // ─── phaseAddBatch ─────────────────────────────────────────────────────
