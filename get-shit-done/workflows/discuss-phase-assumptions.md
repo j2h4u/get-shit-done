@@ -77,7 +77,7 @@ Parse JSON for: `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phas
 ```
 Phase [X] not found in roadmap.
 
-Use /gsd:progress to see available phases.
+Use /gsd-progress to see available phases.
 ```
 Exit workflow.
 
@@ -294,6 +294,8 @@ ${AGENT_SKILLS_ANALYZER}
 """)
 ```
 
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, analyze the codebase, or process assumptions while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+
 Parse the subagent's response. Extract:
 - `assumptions[]` — each with area, statement, evidence, consequence, confidence
 - `needs_research[]` — topics requiring external research (may be empty)
@@ -324,6 +326,8 @@ For each topic, return:
 Use Context7 (resolve-library-id then query-docs) for library-specific questions.
 Use WebSearch for ecosystem/best-practice questions.
 """)
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not independently research any of these topics while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work and wasted context. Only resume when the subagent result is available.
 ```
 
 Merge findings back into assumptions:
@@ -599,13 +603,13 @@ Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 
 `/clear` then:
 
-`/gsd:plan-phase ${PHASE}`
+`/gsd-plan-phase ${PHASE}`
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase ${PHASE} --skip-research` — plan without research
-- `/gsd:ui-phase ${PHASE}` — generate UI design contract (if frontend work)
+- `/gsd-plan-phase ${PHASE} --skip-research` — plan without research
+- `/gsd-ui-phase ${PHASE}` — generate UI design contract (if frontend work)
 - Review/edit CONTEXT.md before continuing
 
 ---

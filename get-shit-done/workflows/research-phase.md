@@ -1,7 +1,7 @@
 <purpose>
 Research how to implement a phase. Spawns gsd-phase-researcher with phase context.
 
-Standalone research command. For most workflows, use `/gsd:plan-phase` which integrates research automatically.
+Standalone research command. For most workflows, use `/gsd-plan-phase` which integrates research automatically.
 </purpose>
 
 <available_agent_types>
@@ -54,7 +54,7 @@ Research implementation approach for Phase {phase}: {name}
 </objective>
 
 <files_to_read>
-- {context_path} (USER DECISIONS from /gsd:discuss-phase)
+- {context_path} (USER DECISIONS from /gsd-discuss-phase)
 - {requirements_path} (Project requirements)
 - {state_path} (Project decisions and history)
 </files_to_read>
@@ -72,6 +72,8 @@ Write to: .planning/phases/${PHASE}-{slug}/${PHASE}-RESEARCH.md
   model="{researcher_model}"
 )
 ```
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 ## Step 5: Handle Return
 

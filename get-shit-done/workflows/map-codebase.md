@@ -29,8 +29,8 @@ Documents are reference material for Claude when planning/executing. Always incl
 
 <step name="parse_paths_flag" priority="first">
 Parse an optional `--paths <p1,p2,...>` argument. When supplied (by the
-post-execute codebase-drift gate in `/gsd:execute-phase` or by a user running
-`/gsd:map-codebase --paths apps/accounting,packages/ui`), the workflow
+post-execute codebase-drift gate in `/gsd-execute-phase` or by a user running
+`/gsd-map-codebase --paths apps/accounting,packages/ui`), the workflow
 operates in **incremental-remap mode**:
 
 - Pass `--paths <p1>,<p2>,...` through to each spawned `gsd-codebase-mapper`
@@ -246,6 +246,8 @@ ${AGENT_SKILLS_MAPPER}"
 )
 ```
 
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling all 4 Task() calls above with `run_in_background=true`, do NOT read any source files, analyze the codebase, or write any mapping documents independently while the subagents are active. Wait for all 4 agents to complete before proceeding to collect_confirmations. This prevents duplicate work and wasted context.
+
 Continue to collect_confirmations.
 </step>
 
@@ -413,12 +415,12 @@ Created .planning/codebase/:
 
 `/clear` then:
 
-`/gsd:new-project`
+`/gsd-new-project`
 
 ---
 
 **Also available:**
-- Re-run mapping: `/gsd:map-codebase`
+- Re-run mapping: `/gsd-map-codebase`
 - Review specific file: `cat .planning/codebase/STACK.md`
 - Edit any document before proceeding
 

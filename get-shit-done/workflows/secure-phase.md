@@ -28,7 +28,7 @@ AUDITOR_MODEL=$(gsd-sdk query resolve-model gsd-security-auditor --raw)
 SECURITY_CFG=$(gsd-sdk query config-get workflow.security_enforcement --raw 2>/dev/null || echo "true")
 ```
 
-If `SECURITY_CFG` is `false`: exit with "Security enforcement disabled. Enable via /gsd:settings."
+If `SECURITY_CFG` is `false`: exit with "Security enforcement disabled. Enable via /gsd-settings."
 
 Display banner: `GSD > SECURE PHASE {N}: {name}`
 
@@ -42,7 +42,7 @@ SUMMARY_FILES=$(ls "${PHASE_DIR}"/*-SUMMARY.md 2>/dev/null)
 
 - **State A** (`SECURITY_FILE` non-empty): Audit existing
 - **State B** (`SECURITY_FILE` empty, `PLAN_FILES` and `SUMMARY_FILES` non-empty): Run from artifacts
-- **State C** (`SUMMARY_FILES` empty): Exit — "Phase {N} not executed. Run /gsd:execute-phase {N} first."
+- **State C** (`SUMMARY_FILES` empty): Exit — "Phase {N} not executed. Run /gsd-execute-phase {N} first."
 
 ## 2. Discovery
 
@@ -96,6 +96,8 @@ Task(
 )
 ```
 
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+
 Handle return:
 - `## SECURED` → record closures → Step 6
 - `## OPEN_THREATS` → record closed + open, present user with accept/block choice → Step 6
@@ -125,7 +127,7 @@ Handle return:
 ```
 GSD > PHASE {N} SECURITY BLOCKED
 {K} threats open — phase advancement blocked until threats_open: 0
-▶ Fix mitigations then re-run: /gsd:secure-phase {N}
+▶ Fix mitigations then re-run: /gsd-secure-phase {N}
 ▶ Or document accepted risks in SECURITY.md and re-run.
 ```
 
@@ -143,8 +145,8 @@ gsd-sdk query commit "docs(phase-${PHASE}): add/update security threat verificat
 ```
 GSD > PHASE {N} THREAT-SECURE
 threats_open: 0 — all threats have dispositions.
-▶ /gsd:validate-phase {N}    validate test coverage
-▶ /gsd:verify-work {N}       run UAT
+▶ /gsd-validate-phase {N}    validate test coverage
+▶ /gsd-verify-work {N}       run UAT
 ```
 
 Display `/clear` reminder.

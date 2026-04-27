@@ -126,13 +126,13 @@ If `$VALIDATE_MODE` only:
 
 ```bash
 if ! command -v gsd-sdk &>/dev/null; then
-  echo "⚠ gsd-sdk not found in PATH — /gsd:quick requires it."
+  echo "⚠ gsd-sdk not found in PATH — /gsd-quick requires it."
   echo ""
   echo "Install the GSD SDK:"
   echo "  npm install -g @gsd-build/sdk"
   echo ""
   echo "Or update GSD to get the latest packages:"
-  echo "  /gsd:update"
+  echo "  /gsd-update"
   exit 1
 fi
 ```
@@ -161,7 +161,7 @@ if [ -f .gitmodules ]; then
 fi
 ```
 
-**If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/gsd:new-project` first.
+**If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/gsd-new-project` first.
 
 Quick tasks can run mid-phase - validation only checks ROADMAP.md exists, not phase status.
 
@@ -392,6 +392,8 @@ Return: ## RESEARCH COMPLETE with file path
 )
 ```
 
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+
 After researcher returns:
 1. Verify research exists at `${QUICK_DIR}/${quick_id}-RESEARCH.md`
 2. Report: "Research complete: ${QUICK_DIR}/${quick_id}-RESEARCH.md"
@@ -447,6 +449,8 @@ Return: ## PLANNING COMPLETE with plan path
   description="Quick plan: ${DESCRIPTION}"
 )
 ```
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After planner returns:
 1. Verify plan exists at `${QUICK_DIR}/${quick_id}-PLAN.md`
@@ -512,6 +516,8 @@ Task(
 )
 ```
 
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+
 **Handle checker return:**
 
 - **`## VERIFICATION PASSED`:** Display confirmation, proceed to step 6.
@@ -556,6 +562,8 @@ Task(
   description="Revise quick plan: ${DESCRIPTION}"
 )
 ```
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After planner returns → spawn checker again, increment iteration_count.
 
@@ -633,6 +641,8 @@ ${AGENT_SKILLS_EXECUTOR}
   description="Execute: ${DESCRIPTION}"
 )
 ```
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After executor returns:
 1. **Worktree cleanup:** If the executor ran with `isolation="worktree"`, merge the worktree branch back and clean up:
@@ -775,6 +785,8 @@ Task(
 )
 ```
 
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+
 If review produces findings, display advisory message. **Error handling:** Failures are non-blocking — catch and proceed.
 
 ---
@@ -810,6 +822,8 @@ Check must_haves against actual codebase. Create VERIFICATION.md at ${QUICK_DIR}
   description="Verify: ${DESCRIPTION}"
 )
 ```
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Task() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 Read verification status:
 ```bash
@@ -930,7 +944,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /gsd:quick ${GSD_WS}
+Ready for next task: /gsd-quick ${GSD_WS}
 ```
 
 **If NOT `$VALIDATE_MODE`:**
@@ -947,7 +961,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /gsd:quick ${GSD_WS}
+Ready for next task: /gsd-quick ${GSD_WS}
 ```
 
 </process>
