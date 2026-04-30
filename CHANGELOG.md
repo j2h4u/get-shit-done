@@ -6,6 +6,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased](https://github.com/gsd-build/get-shit-done/compare/v1.38.5...HEAD)
 
+### Added — 1.40.0-rc.1
+- **Six namespace meta-skills with keyword-tag descriptions** — replace the flat 86-skill
+  listing with two-stage hierarchical routing. Model sees 6 namespace routers
+  (`gsd:workflow`, `gsd:project`, `gsd:review`, `gsd:context`, `gsd:manage`,
+  `gsd:ideate`) instead of 86 flat entries; selects a namespace, then routes to the
+  sub-skill. Descriptions use pipe-separated keyword tags (≤ 60 chars). Cuts cold-start
+  system-prompt overhead from ~2,150 tokens to ~120. Existing sub-skills are unchanged
+  and still invocable directly. (#2792)
+- **`/gsd-health --context` utilization guard** — context-window quality guard with two
+  thresholds: 60 % warns ("consider `/gsd-thread`"), 70 % is critical ("reasoning
+  quality may degrade"). Exposed via `/gsd-health --context` and as a structured
+  `gsd-tools validate context` command. (#2792)
+- **Phase-lifecycle status-line — read-side** — `parseStateMd()` now reads four new
+  STATE.md frontmatter fields: `active_phase`, `next_action`, `next_phases`, and
+  `progress` (nested completed/total/percent). `formatGsdState()` gains scenes for
+  in-flight, idle, and progress display. All fields default to undefined so existing
+  STATE.md files keep rendering. Write-side and status-line wiring follow in a later
+  RC. (#2833)
+
+### Changed — 1.40.0-rc.1
+- **Skill surface consolidated 86 → 59 `commands/gsd/*.md` entries** — four new
+  grouped skills (`capture`, `phase`, `config`, `workspace`) replace clusters of
+  micro-skills. Six existing parents absorb wrap-up and sub-operations as flags:
+  `update --sync/--reapply`, `sketch --wrap-up`, `spike --wrap-up`,
+  `map-codebase --fast/--query`, `code-review --fix`, `progress --do/--next`. Zero
+  functional loss; 31 micro-skills deleted. `autonomous.md` corrected to call
+  `gsd:code-review --fix` (was invoking deleted `gsd:code-review-fix`). (#2790)
+- **PRs missing `Closes #NNN` are auto-closed** — the `Issue link required` workflow
+  now auto-closes PRs opened without a closing keyword that links a tracking issue,
+  posting a comment that points to the contribution guide. (#2872)
+
+### Fixed — 1.40.0-rc.1
+- **Gemini slash commands namespaced as `/gsd:<cmd>` instead of `/gsd-<cmd>`** —
+  Gemini CLI namespaces commands under `gsd:`, so `/gsd-plan-phase` was unexecutable.
+  Body-text references in commands, agents, banners, and patch-reapply hints are now
+  converted via a roster-checked regex (boundary lookbehind + extension-aware
+  lookahead + roster lookup, defense-in-depth). The roster fail-loud guard prevents
+  silent no-op'ing if `commands/gsd/` is ever missing. (#2768, #2783)
+- **`SKILL.md` description quoted for Copilot / Antigravity / Trae / CodeBuddy** —
+  descriptions starting with a YAML 1.2 flow indicator (`[BETA]`, `{`, `*`, `&`, `!`,
+  `|`, `>`, `%`, `@`, backtick) crashed gh-copilot's strict YAML loader. Six emission
+  sites now wrap descriptions in `yamlQuote(...)` (= `JSON.stringify`, a valid YAML
+  1.2 double-quoted scalar). (#2876)
+- **`gsd-tools` invocations use the absolute installed path** — bare `gsd-tools …`
+  calls inside skill bodies relied on PATH resolution that is not guaranteed in every
+  runtime; replaced with the absolute path emitted at install time. (#2851)
+- **Codex installer preserves trailing newline when stripping legacy hooks** — the
+  legacy-hook strip in the Codex installer ran against files with no terminating
+  newline at EOF and emitted a config that lost the newline, breaking downstream
+  parsers. (#2866)
+
 ### Added
 - `--minimal` install flag (alias `--core-only`) writes only the main-loop core skills
   (`new-project`, `discuss-phase`, `plan-phase`, `execute-phase`, `help`, `update`) and
@@ -29,8 +80,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.planning/config.json` is loaded first and deep-merged with the workstream config
   (workstream wins on conflict). Explicit `null` in a workstream config now correctly
   overrides a root value. (#2714)
+- **Manual canary release workflow** — `.github/workflows/canary.yml` publishes
+  `{base}-canary.{N}` builds of `get-shit-done-cc` and `@gsd-build/sdk` under the
+  `canary` dist-tag on demand via `workflow_dispatch` (manual trigger only — auto-publish
+  on every push to main was rejected because submission rate is too high). Includes an
+  optional `dry_run` boolean and the same publish-verification gate as `release.yml`. (#2828)
+
+### Changed
+- **Canary release workflow now publishes from `dev` branch only** — `.github/workflows/canary.yml`
+  swaps its four publish-step guards from `refs/heads/main` to `refs/heads/dev`. Aligns the
+  workflow with the new branch→dist-tag policy (`dev` → `@canary`, `main` → `@next`/`@latest`).
+  Added a header comment documenting the policy. `workflow_dispatch` runs on `main` (or any
+  other branch) now complete build/test/dry-run validation but skip publish + tag, instead
+  of the previous behaviour where `main` published and `dev` silently no-op'd. (#2868)
+- **Skill descriptions trimmed to ≤ 100 chars across all `commands/gsd/*.md`** — three
+  anti-patterns eliminated: flag documentation already present in `argument-hint:` (e.g.
+  `discuss-phase` was 380 chars, now 76), `Triggers:` keyword-stuffing lists, and
+  numbered enumeration patterns. Range was 45–380 chars; now 45–99. (#2789)
+- **`scripts/lint-descriptions.cjs` added** — CI lint gate that fails if any
+  `commands/gsd/*.md` description exceeds 100 chars. Run via `npm run lint:descriptions`.
+  (#2789)
+
+### Changed
+- **Skill surface consolidated from 86 → 59 `commands/gsd/*.md` entries** — four new
+  grouped skills replace clusters of micro-skills: `capture` (add-todo, note, add-backlog,
+  plant-seed, check-todos), `phase` (add-phase, insert-phase, remove-phase, edit-phase),
+  `config` (settings-advanced, settings-integrations, set-profile), `workspace`
+  (new-workspace, list-workspaces, remove-workspace). Six parent skills absorb wrap-up
+  and sub-operations as flags: `update --sync/--reapply`, `sketch --wrap-up`,
+  `spike --wrap-up`, `map-codebase --fast/--query`, `code-review --fix`,
+  `progress --do/--next`. Zero functional loss. (#2790)
+- **`autonomous.md` corrected** — was invoking deleted `gsd:code-review-fix`; now calls
+  `gsd:code-review --fix`. (#2790)
+
+### Removed
+- **31 micro-skills deleted** — absorbed into consolidated parents or removed outright:
+  add-todo, note, add-backlog, plant-seed, check-todos, add-phase, insert-phase,
+  remove-phase, edit-phase, settings-advanced, settings-integrations, set-profile,
+  new-workspace, list-workspaces, remove-workspace, sync-skills, reapply-patches,
+  sketch-wrap-up, spike-wrap-up, scan, intel, code-review-fix, next, do,
+  join-discord, research-phase, session-report, from-gsd2, analyze-dependencies,
+  list-phase-assumptions, plan-milestone-gaps. All functionality preserved via flags on
+  consolidated skills. (#2790)
 
 ### Fixed
+- **GSD slash command namespace drift cleaned up across docs, workflows, and autocomplete** — remaining active `/gsd:<cmd>` references now use canonical `/gsd-<cmd>`, escaped workflow `Skill(skill=\"gsd:...\")` prompts now use hyphenated skill names, `scripts/fix-slash-commands.cjs` rewrites retired colon syntax to hyphen syntax, and the extract-learnings command file now uses `extract-learnings.md` so generated Claude/Qwen skill autocomplete exposes `gsd-extract-learnings` instead of `gsd-extract_learnings`. (#2855)
 - **`extractCurrentMilestone` no longer truncates ROADMAP.md at heading-like lines inside fenced code blocks** — the milestone-end search now scans line-by-line while tracking ` ``` ` / `~~~` fence state, so a line like `# Ops runbook (v1.0 compat)` inside a code block no longer acts as a milestone boundary. Previously, any phase defined after such a block was invisible to `roadmap analyze`, `roadmap get-phase`, `/gsd-autonomous`, and all phase-number commands. (#2787)
 - **Codex install no longer corrupts existing `~/.codex/config.toml`** — the installer
   now defensively strips legacy `[agents]` (single-bracket) and `[[agents]]` (sequence)
@@ -141,6 +235,69 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   include an explicit `ORCHESTRATOR RULE` blockquote immediately after every `Task()`
   spawn, preventing the Codex parallel-work anti-pattern where the parent continues
   reading files and producing conflicting output. (#2729)
+- **`audit-uat` parser reads `human_verification:` from frontmatter array** — the
+  previous body-only regex was too strict and missed valid UAT items declared in YAML
+  frontmatter, surfacing false-positive open gaps at every `/gsd-complete-milestone`
+  audit. (#2788)
+- **`gsd-sdk` binary collision with `@gsd-build/sdk` resolved** — workstream-aware
+  query registry now respects `GSD_WORKSTREAM` env var; `gsd-tools` bin alias added so
+  the two SDK packages no longer fight over the `gsd-sdk` name in `node_modules/.bin`.
+  (#2791)
+- **OpenCode generated agents embed `model_profile_overrides.opencode.<tier>`** —
+  per-tier model overrides set via `/gsd-settings-advanced` are now propagated into the
+  generated agent files instead of being silently ignored. (#2794)
+- **`roadmap update-plan-progress` accepts `--phase` flag form** — SDK arg-parsing
+  regression in v0.1.0 silently dropped `--phase`/`--name`/`--plans` flags, causing
+  `state.begin-phase` and `roadmap update-plan-progress` to corrupt STATE.md. (#2796)
+- **`context_window` added to `VALID_CONFIG_KEYS` allowlist** — `/gsd-settings-advanced`
+  could not set `context_window` because the key was missing from the allowlist used by
+  `config-set` validation. (#2798)
+- **`gsd-tools init` dispatches `ingest-docs` handler** — `/gsd-ingest-docs` was broken
+  in v1.38.5 because the workflow called `gsd-sdk` (now `gsd-tools`) but no
+  `ingest-docs` init handler was registered. (#2801)
+- **`config-get` honors `--default <value>` flag** — fallback for missing keys was
+  ported from the CJS implementation (#1893) into the SDK. (#2803)
+- **`find-phase` returns `null` for archived phases** — when the current-milestone
+  phase had no directory yet, `init.plan-phase` / `init.execute-phase` returned the
+  archived prior-milestone directory instead of `null`, causing wrong-phase work. (#2805)
+- **SKILL.md frontmatter `name:` migrated to hyphen form** — files that still used the
+  deprecated colon form (`gsd:cmd`) caused autocomplete to suggest `/gsd:command`.
+  Frontmatter now uses canonical `gsd-cmd` hyphen names. (#2808)
+- **`gsd-sdk` resolvable in local-mode installs** — the previous `isLocal` short-circuit
+  in `installSdkIfNeeded()` returned before the PATH probe + self-link path could run
+  (the same path that fixed npx-cache global installs in #2775). When `sdk/dist/cli.js`
+  is present, local installs now run the same probe-and-link flow as global installs.
+  (#2829)
+- **OpenCode `@file` references use absolute paths on all platforms** — OpenCode does
+  not shell-expand `$HOME` in `@file` references on any platform, but the Windows-only
+  guard from #2376 left macOS/Linux producing literal `@$HOME/...` strings that resolved
+  to `command/$HOME/...` (file not found). Guard now applies to OpenCode unconditionally.
+  (#2831)
+- **`gsd-sdk auto` detects Codex runtime correctly** — `auto` mode ignored
+  `runtime: codex` and routed through `@anthropic-ai/claude-agent-sdk`, producing the
+  `[FAILED] $0.00 0.1s` symptom on autonomous runs. New `runtime-gate` raises a clear
+  error for non-Claude runtimes; `resolveModel()` is now runtime-aware (honours
+  `GSD_RUNTIME` env precedence) and never injects a Claude profile id under non-Claude
+  runtimes. (#2832)
+- **CR-INTEGRATION tests aligned with hyphen-form skill names** — tests previously
+  asserted `gsd:code-review` (colon) against `autonomous.md` which now uses the canonical
+  hyphen form. Tests now parse `Skill(skill="...")` invocations structurally and reject
+  the legacy colon form. (#2835)
+- **`audit-open` quick-task scanner accepts `${quick_id}-SUMMARY.md`** — the previous
+  bare-`SUMMARY.md` filename check produced false-positive `status: missing` for every
+  documented quick task. UAT terminal-status enum also adds `resolved` (matches
+  `execute-phase.md`'s post-gap-closure terminal); `help.md` one-liner reconciled with
+  the canonical `quick.md` workflow. (#2836)
+- **`quick.md` / `execute-phase.md` SUMMARY rescue handles gitignored `.planning/`** —
+  rescue blocks used `git ls-files --exclude-standard` which honoured `.gitignore`,
+  silently no-op'ing when `.planning/` was excluded; the worktree was then deleted with
+  the SUMMARY. Replaced with filesystem-level `find` + idempotent `cp` that bypasses git
+  entirely. (#2838)
+- **`/gsd-code-review-fix` cleanup tail is transactional** — JSON recovery sentinel at
+  `${phase_dir}/.review-fix-recovery-pending.json` is written after `git worktree add`
+  succeeds and removed only after `git worktree remove` returns. A new run that finds a
+  pre-existing sentinel force-removes the orphan worktree before starting fresh, making
+  the agent self-healing across crashes. (#2839)
 
 ### Performance
 - **`discuss-phase` lazy file loading** — entry-point `@file` directives replaced with
