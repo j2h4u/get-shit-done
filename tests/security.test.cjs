@@ -530,6 +530,21 @@ describe('gsd-statusline session_id path traversal', () => {
     assert.ok(!fs.existsSync(bridgePath), 'bridge file must not be written for session_id with /');
   });
 
+  test('does not write bridge file for unsafe session_id with --no-ctx', () => {
+    const maliciousId = 'sub/path';
+    const bridgePath = path.join(tmpDir, 'claude-ctx-' + maliciousId + '.json');
+    try { fs.unlinkSync(bridgePath); } catch { /* intentionally empty */ }
+
+    execFileSync(process.execPath, [statuslinePath, '--no-ctx'], {
+      input: JSON.stringify({ ...baseInput, session_id: maliciousId }),
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 3000,
+    });
+
+    assert.ok(!fs.existsSync(bridgePath), 'bridge file must not be written for unsafe session_id with --no-ctx');
+  });
+
   test('writes bridge file for safe session_id', () => {
     const safeId = 'abc123-safe-session';
     const bridgePath = path.join(tmpDir, 'claude-ctx-' + safeId + '.json');

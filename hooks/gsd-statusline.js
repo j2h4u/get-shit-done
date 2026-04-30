@@ -359,16 +359,16 @@ function runStatusline() {
         ctx = ` \x1b[5;31m💀 ${bar} ${used}%\x1b[0m`;
       }
     } else if (noCtx && remaining != null) {
-      // --no-ctx: still write bridge file for context-monitor hook
-      const usableRemaining = Math.max(0, ((remaining - AUTO_COMPACT_BUFFER_PCT) / (100 - AUTO_COMPACT_BUFFER_PCT)) * 100);
-      const used = Math.max(0, Math.min(100, Math.round(100 - usableRemaining)));
-      if (session) {
+      // --no-ctx: still write bridge file for context-monitor hook, using
+      // the same raw CC-consistent usage metric as the visible statusline path.
+      const sessionSafe = session && !/[/\\]|\.\./.test(session);
+      if (sessionSafe) {
         try {
           const bridgePath = path.join(os.tmpdir(), `claude-ctx-${session}.json`);
           fs.writeFileSync(bridgePath, JSON.stringify({
             session_id: session,
             remaining_percentage: remaining,
-            used_pct: used,
+            used_pct: Math.round(100 - remaining),
             timestamp: Math.floor(Date.now() / 1000)
           }));
         } catch (e) {}

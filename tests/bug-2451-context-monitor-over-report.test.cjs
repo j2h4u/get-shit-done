@@ -36,7 +36,7 @@ const MONITOR_PATH = path.join(__dirname, '..', 'hooks', 'gsd-context-monitor.js
  * Run the statusline hook with a synthetic payload and return the full
  * bridge JSON object written to /tmp/claude-ctx-{sessionId}.json.
  */
-function runStatuslineHook(remainingPct, totalTokens = 1_000_000, acwEnv = null) {
+function runStatuslineHook(remainingPct, totalTokens = 1_000_000, acwEnv = null, args = []) {
   const sessionId = `test-2451-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const payload = JSON.stringify({
     model: { display_name: 'Claude' },
@@ -56,7 +56,7 @@ function runStatuslineHook(remainingPct, totalTokens = 1_000_000, acwEnv = null)
   }
 
   try {
-    execFileSync(process.execPath, [HOOK_PATH], {
+    execFileSync(process.execPath, [HOOK_PATH, ...args], {
       input: payload,
       env,
       timeout: 4000,
@@ -140,6 +140,15 @@ describe('bug #2451: bridge used_pct matches CC native reporting', () => {
     const bridge = runStatuslineHook(42);
     assert.strictEqual(bridge.remaining_percentage, 42,
       'bridge remaining_percentage must be the raw CC value (no normalization)');
+  });
+
+  test('--no-ctx still writes raw used_pct for context monitor', () => {
+    const bridge = runStatuslineHook(35, 1_000_000, null, ['--no-ctx']);
+    assert.strictEqual(
+      bridge.used_pct,
+      65,
+      '--no-ctx suppresses the visible meter only; bridge used_pct must remain raw'
+    );
   });
 });
 
