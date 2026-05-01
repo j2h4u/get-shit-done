@@ -250,7 +250,8 @@ describe('Hermes Agent: copyCommandsAsClaudeSkills', () => {
     copyCommandsAsClaudeSkills(srcDir, skillsDir, 'gsd', '/test/', 'hermes', false);
 
     const content = fs.readFileSync(path.join(skillsDir, 'gsd-execute', 'SKILL.md'), 'utf8');
-    assert.ok(content.includes('agent: gsd-executor'), 'agent field preserved');
+    const fm = parseFrontmatter(content);
+    assert.strictEqual(fm.agent, 'gsd-executor', 'agent field preserved');
   });
 });
 
