@@ -257,12 +257,13 @@ See [`docs/INVENTORY.md`](INVENTORY.md#hooks-11-shipped) for the authoritative 1
 
 ### CLI Tools (`get-shit-done/bin/`)
 
-Node.js CLI utility (`gsd-tools.cjs`) with domain modules split across `get-shit-done/bin/lib/` (see [`docs/INVENTORY.md`](INVENTORY.md#cli-modules-24-shipped) for the authoritative roster):
+Node.js CLI utility (`gsd-tools.cjs`) with domain modules split across `get-shit-done/bin/lib/` (see [`docs/INVENTORY.md`](INVENTORY.md#cli-modules-33-shipped) for the authoritative roster):
 
 
 | Module                 | Responsibility                                                                                      |
 | ---------------------- | --------------------------------------------------------------------------------------------------- |
-| `core.cjs`             | Error handling, output formatting, shared utilities                                                 |
+| `core.cjs`             | Error handling, output formatting, shared utilities; compatibility re-exports for planning helpers |
+| `planning-workspace.cjs` | Planning seam (`planningDir`, `planningPaths`, active workstream routing, `.planning/.lock`)      |
 | `state.cjs`            | STATE.md parsing, updating, progression, metrics                                                    |
 | `phase.cjs`            | Phase directory operations, decimal numbering, plan indexing                                        |
 | `roadmap.cjs`          | ROADMAP.md parsing, phase extraction, plan progress                                                 |
@@ -578,7 +579,7 @@ The installer (`bin/install.js`, ~3,000 lines) handles:
   - Augment Code: Skills-first with full skill conversion and config management
 5. **Path normalization** — Replaces `~/.claude/` paths with runtime-specific paths
 6. **Settings integration** — Registers hooks in runtime's `settings.json`
-7. **Patch backup** — Since v1.17, backs up locally modified files to `gsd-local-patches/` for `/gsd-reapply-patches`
+7. **Patch backup** — Since v1.17, backs up locally modified files to `gsd-local-patches/` for `/gsd-update --reapply`
 8. **Manifest tracking** — Writes `gsd-file-manifest.json` for clean uninstall
 9. **Uninstall mode** — `--uninstall` removes all GSD files, hooks, and settings
 

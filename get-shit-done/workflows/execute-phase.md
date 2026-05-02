@@ -217,9 +217,33 @@ Check `branching_strategy` from init:
 
 **"none":** Skip, continue on current branch.
 
-**"phase" or "milestone":** Use pre-computed `branch_name` from init:
+**"phase" or "milestone":** Use pre-computed `branch_name` from init.
+
+Fork the new phase branch off `origin/HEAD` (the project's default branch), not the current HEAD — otherwise consecutive phases compound and stay unpushed (#2916). If `$BRANCH_NAME` already exists locally, reuse it as-is.
+
 ```bash
-git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+DEFAULT_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
+
+if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+  git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
+else
+  if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
+    git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH" \
+      || { echo "ERROR: fetch origin/$DEFAULT_BRANCH failed and no local copy exists. Refusing to create '$BRANCH_NAME' off current HEAD (#2916)." >&2; exit 1; }
+    echo "WARNING: fetch origin/$DEFAULT_BRANCH failed; using local copy as base." >&2
+  fi
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "WARNING: Uncommitted changes will be carried onto '$BRANCH_NAME' (branched off origin/$DEFAULT_BRANCH, not previous HEAD)."
+  else
+    git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
+  fi
+  # Pinned base + fail-fast: on success HEAD is exactly at origin/$DEFAULT_BRANCH,
+  # so a post-creation merge-base or "ahead-of" guard would be unreachable. The
+  # explicit base argument here is the single source of correctness for #2916.
+  git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" \
+    || { echo "ERROR: Could not create '$BRANCH_NAME' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
+fi
 ```
 
 All subsequent commits go to this branch. User handles merging.
@@ -482,40 +506,37 @@ increases monotonically across waves. `{status}` is `complete` (success),
        </objective>
 
        <worktree_branch_check>
-       FIRST ACTION before any other work: verify this worktree's branch is based on the correct commit.
-
-       Run:
+       FIRST ACTION: HEAD assertion MUST run before any reset/checkout. Worktrees
+       spawned by Claude Code's `isolation="worktree"` use the `worktree-agent-<id>`
+       namespace. If HEAD is on a protected ref (main/master/develop/trunk/release/*)
+       or detached, HALT — do NOT self-recover by force-rewinding via `git update-ref`,
+       that destroys concurrent commits in multi-active scenarios (#2924). Only after
+       Step 1 passes is `git reset --hard` safe (#2015 — affects all platforms).
        ```bash
-       ACTUAL_BASE=$(git merge-base HEAD {EXPECTED_BASE})
-       ```
-
-       If `ACTUAL_BASE` != `{EXPECTED_BASE}` (i.e. the worktree branch was created from an older
-       base such as `main` instead of the feature branch HEAD), hard-reset to the correct base:
-       ```bash
-       # Safe: this runs before any agent work, so no uncommitted changes to lose
-       git reset --hard {EXPECTED_BASE}
-       # Verify correction succeeded
-       if [ "$(git rev-parse HEAD)" != "{EXPECTED_BASE}" ]; then
-         echo "ERROR: Could not correct worktree base — aborting to prevent data loss"
+       HEAD_REF=$(git symbolic-ref --quiet HEAD || echo "DETACHED")
+       ACTUAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+       if [ "$HEAD_REF" = "DETACHED" ] || echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
+         echo "FATAL: worktree HEAD on '$ACTUAL_BRANCH' (expected worktree-agent-*); refusing to self-recover via 'git update-ref' (#2924)." >&2
          exit 1
        fi
+       if ! echo "$ACTUAL_BRANCH" | grep -Eq '^worktree-agent-[A-Za-z0-9._/-]+$'; then
+         echo "FATAL: worktree HEAD '$ACTUAL_BRANCH' is not in the worktree-agent-* namespace; refusing to commit (#2924)." >&2
+         exit 1
+       fi
+       ACTUAL_BASE=$(git merge-base HEAD {EXPECTED_BASE})
+       if [ "$ACTUAL_BASE" != "{EXPECTED_BASE}" ]; then
+         git reset --hard {EXPECTED_BASE}
+         [ "$(git rev-parse HEAD)" != "{EXPECTED_BASE}" ] && { echo "ERROR: could not correct worktree base"; exit 1; }
+       fi
        ```
-
-       `reset --hard` is safe here because this is a fresh worktree with no user changes. It
-       resets both the HEAD pointer AND the working tree to the correct base commit (#2015).
-
-       If `ACTUAL_BASE` == `{EXPECTED_BASE}`: the branch base is correct, proceed immediately.
-
-       This check fixes a known issue where `EnterWorktree` creates branches from
-       `main` instead of the current feature branch HEAD (affects all platforms).
+       Per-commit HEAD assertion lives in `agents/gsd-executor.md` `<task_commit_protocol>` step 0.
        </worktree_branch_check>
 
        <parallel_execution>
        You are running as a PARALLEL executor agent in a git worktree.
-       Use --no-verify on all git commits to avoid pre-commit hook contention
-       with other agents. The orchestrator validates hooks once after all agents complete.
-       For `gsd-sdk query commit` (or legacy `gsd-tools.cjs` commit): add --no-verify flag when needed.
-       For direct git commits: use git commit --no-verify -m "..."
+       Run `git commit` normally — hooks run by default. Do NOT pass `--no-verify`
+       unless the orchestrator surfaces `workflow.worktree_skip_hooks=true` in this
+       prompt; silent bypass violates project CLAUDE.md guidance (#2924).
 
        IMPORTANT: Do NOT modify STATE.md or ROADMAP.md. execute-plan.md
        auto-detects worktree mode (`.git` is a file, not a directory) and skips
@@ -527,6 +548,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
        only (STATE.md and ROADMAP.md are excluded automatically). Do NOT skip or defer
        this commit — the orchestrator force-removes the worktree after you return, and
        any uncommitted SUMMARY.md will be permanently lost (#2070).
+       REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
        </parallel_execution>
 
        <execution_context>
@@ -581,6 +603,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
        <sequential_execution>
        You are running as a SEQUENTIAL executor agent on the main working tree.
        Use normal git commits (with hooks). Do NOT use --no-verify.
+       REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
        </sequential_execution>
    ```
 
@@ -632,13 +655,16 @@ increases monotonically across waves. `{status}` is `complete` (success),
    **This fallback applies automatically to all runtimes.** Claude Code's Task() normally
    returns synchronously, but the fallback ensures resilience if it doesn't.
 
-5. **Post-wave hook validation (parallel mode only):**
-
-   When agents committed with `--no-verify`, run pre-commit hooks once after the wave:
+5. **Post-wave hook validation (parallel mode only):** Hooks run on every executor commit by default (#2924); this post-wave run only fires when `workflow.worktree_skip_hooks=true` opted out of per-commit hooks:
    ```bash
-   # Run project's pre-commit hooks on the current state
-   git diff --cached --quiet || git stash  # stash any unstaged changes
-   git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
+   SKIP_HOOKS=$(gsd-sdk query config-get workflow.worktree_skip_hooks 2>/dev/null || echo "false")
+   if [ "$SKIP_HOOKS" = "true" ]; then
+     # Stash uncommitted changes under a named ref so we always pop (bare `git stash` strands them on hook/script failure).
+     STASHED=false
+     if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
+     git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
+     [ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
+   fi
    ```
    If hooks fail: report the failure and ask "Fix hook issues now?" or "Continue to next wave?"
 

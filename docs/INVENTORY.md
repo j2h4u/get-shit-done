@@ -224,7 +224,7 @@ Full roster at `get-shit-done/workflows/*.md`. Workflows are thin orchestrators 
 | `profile-user.md` | Orchestrate the full developer profiling flow — consent, session scan, profile generation. | `/gsd-profile-user` |
 | `progress.md` | Progress rendering — project context, position, and next-action routing. | `/gsd-progress` |
 | `quick.md` | Quick-task execution with GSD guarantees (atomic commits, state tracking). | `/gsd-quick` |
-| `reapply-patches.md` | Reapply local modifications after a GSD update. | `/gsd-reapply-patches` |
+| `reapply-patches.md` | Reapply local modifications after a GSD update. | `/gsd-update --reapply` |
 | `remove-phase.md` | Remove a future phase from the roadmap and renumber subsequent phases. | `/gsd-remove-phase` |
 | `remove-workspace.md` | Remove a GSD workspace and clean up worktrees. | `/gsd-remove-workspace` |
 | `research-phase.md` | Standalone phase research workflow (usually invoked via `plan-phase`). | `/gsd-research-phase` |
@@ -348,7 +348,7 @@ The `gsd-planner` agent is decomposed into a core agent plus reference modules t
 
 ---
 
-## CLI Modules (32 shipped)
+## CLI Modules (41 shipped)
 
 Full listing: `get-shit-done/bin/lib/*.cjs`.
 
@@ -356,11 +356,12 @@ Full listing: `get-shit-done/bin/lib/*.cjs`.
 |--------|----------------|
 | `artifacts.cjs` | Canonical artifact registry — known `.planning/` root file names; used by `gsd-health` W019 lint |
 | `audit.cjs` | Audit dispatch, audit open sessions, audit storage helpers |
+| `command-aliases.generated.cjs` | Generated CJS alias/subcommand metadata for manifest-backed family routers |
 | `commands.cjs` | Misc CLI commands (slug, timestamp, todos, scaffolding, stats) |
 | `config-schema.cjs` | Single source of truth for `VALID_CONFIG_KEYS` and dynamic key patterns; imported by both the validator and the config-schema-docs parity test |
 | `config.cjs` | `config.json` read/write, section initialization; imports validator from `config-schema.cjs` |
 | `context-utilization.cjs` | Pure classifier for `gsd-health --context` — turns (tokensUsed, contextWindow) into a `{ percent, state }` triage result against the 60%/70% fracture-point thresholds (#2792) |
-| `core.cjs` | Error handling, output formatting, shared utilities, runtime fallbacks |
+| `core.cjs` | Error handling, output formatting, shared utilities, runtime fallbacks; compatibility re-exports for planning-workspace helpers |
 | `decisions.cjs` | Shared parser for CONTEXT.md `<decisions>` blocks (D-NN entries); used by `gap-checker.cjs` and intended for #2492 plan/verify decision gates |
 | `docs.cjs` | Docs-update workflow init, Markdown scanning, monorepo detection |
 | `drift.cjs` | Post-execute codebase structural drift detector (#2003): classifies file changes into new-dir/barrel/migration/route categories and round-trips `last_mapped_commit` frontmatter |
@@ -368,22 +369,30 @@ Full listing: `get-shit-done/bin/lib/*.cjs`.
 | `gap-checker.cjs` | Post-planning gap analysis (#2493): unified REQUIREMENTS.md + CONTEXT.md decisions vs PLAN.md coverage report (`gsd-tools gap-analysis`) |
 | `graphify.cjs` | Knowledge-graph build/query/status/diff for `/gsd-graphify` |
 | `gsd2-import.cjs` | External-plan ingest for `/gsd-from-gsd2` |
+| `init-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools init` |
 | `init.cjs` | Compound context loading for each workflow type |
 | `install-profiles.cjs` | Install profile allowlist + skill staging for `--minimal` install (#2762); single source of truth for which `gsd-*` skills/agents land in runtime config dirs |
 | `intel.cjs` | Codebase intel store backing `/gsd-intel` and `gsd-intel-updater` |
 | `learnings.cjs` | Cross-phase learnings extraction for `/gsd-extract-learnings` |
 | `milestone.cjs` | Milestone archival, requirements marking |
 | `model-profiles.cjs` | Model profile resolution table (authoritative profile data) |
+| `phase-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools phase` |
 | `phase.cjs` | Phase directory operations, decimal numbering, plan indexing |
+| `phases-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools phases` |
+| `planning-workspace.cjs` | Planning path/workstream seam (`planningDir`, `planningPaths`, active-workstream routing, `.planning/.lock` orchestration) |
 | `profile-output.cjs` | Profile rendering, USER-PROFILE.md and dev-preferences.md generation |
 | `profile-pipeline.cjs` | User behavioral profiling data pipeline, session file scanning |
+| `roadmap-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools roadmap` |
 | `roadmap.cjs` | ROADMAP.md parsing, phase extraction, plan progress |
 | `schema-detect.cjs` | Schema-drift detection for ORM patterns (Prisma, Drizzle, etc.) |
 | `secrets.cjs` | Secret-config masking convention (`****<last-4>`) for integration keys managed by `/gsd-settings-integrations` — keeps plaintext out of `config-set` output |
 | `security.cjs` | Path traversal prevention, prompt injection detection, safe JSON/shell helpers |
+| `state-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools state` |
 | `state.cjs` | STATE.md parsing, updating, progression, metrics |
 | `template.cjs` | Template selection and filling with variable substitution |
 | `uat.cjs` | UAT file parsing, verification debt tracking, audit-uat support |
+| `validate-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools validate` |
+| `verify-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools verify` |
 | `verify.cjs` | Plan structure, phase completeness, reference, commit validation |
 | `workstream.cjs` | Workstream CRUD, migration, session-scoped active pointer |
 
