@@ -142,7 +142,7 @@ claude --dangerously-skip-permissions
 
 GSD is built for frictionless automation. Skip-permissions is how it's intended to run.
 
-See **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** for the full walkthrough, non-interactive install flags for all 15 runtimes, minimal install (`--minimal`), Docker setup, and permissions configuration.
+Install only the skills you need with `--profile=core` (six core-loop skills), `--profile=standard` (core + phase management), or the default full install. Profiles compose: `--profile=core,audit`. `--minimal` is an alias for `--profile=core`. See **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** for the full walkthrough, non-interactive install flags for all 15 runtimes, and permissions configuration. See [ADR-0011](docs/adr/0011-skill-surface-budget-module.md) for the profile model and runtime surface control.
 
 ---
 
@@ -161,6 +161,7 @@ The main loop:
 | `/gsd-progress --next` | Auto-detect and run the next step |
 | `/gsd-complete-milestone` | Archive milestone and tag release |
 | `/gsd-new-milestone` | Start next version |
+| `/gsd:surface` | Enable/disable skill clusters at runtime without reinstall |
 
 For ad-hoc tasks, autonomous mode, codebase analysis, forensics, and the full command surface — see **[docs/COMMANDS.md](docs/COMMANDS.md)**.
 
@@ -192,6 +193,8 @@ Key dials:
 | Model profiles | `quality` / `balanced` / `budget` — controls which model each agent uses |
 | `workflow.research` / `plan_check` / `verifier` | Toggle the quality agents that add tokens and time |
 | `parallelization.enabled` | Run independent plans simultaneously |
+
+Optional structural review: set `code_quality.fallow.enabled` to `true` to add a fallow pre-pass to `/gsd-code-review`. GSD writes `.planning/phases/<phase>/FALLOW.json` and surfaces a `Structural Findings (fallow)` section in `REVIEW.md`. Install with `npm install -D fallow@^2.70.0` (or system-wide via `cargo install fallow`; note that the Rust binary's JSON schema must match the documented v2.70+ contract — older versions may produce silent zero-finding output).
 
 For the full configuration reference — all settings, git branching strategies, per-runtime model overrides, workstream config inheritance, agent skills injection — see **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
 
