@@ -163,6 +163,7 @@ function buildNewProjectConfig(userChoices) {
     exa_search: hasExaSearch,
     git: {
       branching_strategy: CONFIG_DEFAULTS.branching_strategy,
+      create_tag: true,
       phase_branch_template: CONFIG_DEFAULTS.phase_branch_template,
       milestone_branch_template: CONFIG_DEFAULTS.milestone_branch_template,
       quick_branch_template: CONFIG_DEFAULTS.quick_branch_template,
@@ -432,6 +433,13 @@ function cmdConfigSet(cwd, keyPath, value, raw) {
     }
   }
 
+  // #3086 — git.create_tag: boolean only
+  if (keyPath === 'git.create_tag') {
+    if (typeof parsedValue !== 'boolean') {
+      error(`Invalid git.create_tag '${value}'. Must be a boolean (true or false).`);
+    }
+  }
+
   if (keyPath === 'ship.pr_body_sections') {
     validateShipPrBodySections(parsedValue);
   }
@@ -440,6 +448,12 @@ function cmdConfigSet(cwd, keyPath, value, raw) {
   const VALID_HUMAN_VERIFY_MODES = ['mid-flight', 'end-of-phase'];
   if (keyPath === 'workflow.human_verify_mode' && !VALID_HUMAN_VERIFY_MODES.includes(String(parsedValue))) {
     error(`Invalid workflow.human_verify_mode '${value}'. Valid values: ${VALID_HUMAN_VERIFY_MODES.join(', ')}`);
+  }
+
+  // Context position enum validation (#2937)
+  const VALID_CONTEXT_POSITIONS = ['front', 'end'];
+  if (keyPath === 'statusline.context_position' && !VALID_CONTEXT_POSITIONS.includes(String(parsedValue))) {
+    error(`Invalid statusline.context_position '${value}'. Valid values: ${VALID_CONTEXT_POSITIONS.join(', ')}`);
   }
 
   // Fallow scope + profile enum validation (#3424)
@@ -492,6 +506,7 @@ const SCHEMA_DEFAULTS = {
   'context_window': 200000,
   'executor.stall_detect_interval_minutes': 5,
   'executor.stall_threshold_minutes': 10,
+  'git.create_tag': true,
 };
 
 function cmdConfigGet(cwd, keyPath, raw, defaultValue) {
@@ -508,6 +523,10 @@ function cmdConfigGet(cwd, keyPath, raw, defaultValue) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     } else if (hasDefault) {
       output(defaultValue, raw, String(defaultValue));
+      return;
+    } else if (Object.prototype.hasOwnProperty.call(SCHEMA_DEFAULTS, keyPath)) {
+      const def = SCHEMA_DEFAULTS[keyPath];
+      output(def, raw, String(def));
       return;
     } else {
       error('No config.json found at ' + configPath, ERROR_REASON.CONFIG_NO_FILE);
@@ -629,6 +648,40 @@ function cmdConfigPath(cwd) {
   output(configPath, true, configPath);
 }
 
+/**
+ * Explicit on-disk migration of legacy config keys to canonical nested shape.
+ *
+ * Wraps the Configuration Module's migrateOnDisk() for the CLI surface. This
+ * is the Phase 2 acceptance-criteria deliverable for opt-in migration (#3536):
+ * users can run `gsd-tools migrate-config` to apply all four legacy-key
+ * migrations to their .planning/config.json without having to load any config
+ * implicitly via another command.
+ *
+ * Output: JSON object with { migrated, normalizations, wrote } or a human-readable
+ * summary when --raw is set. Exits 0 in all cases (including no-op).
+ */
+async function cmdMigrateConfig(cwd, raw) {
+  const { migrateOnDisk } = require('./configuration.generated.cjs');
+  const ws = process.env.GSD_WORKSTREAM || null;
+  const report = await migrateOnDisk(cwd, ws || undefined);
+
+  if (raw) {
+    if (!report.migrated) {
+      const msg = 'No legacy keys found — config is already canonical.';
+      output(msg, true, msg);
+    } else {
+      const lines = [
+        `Migrated: ${report.wrote}`,
+        ...report.normalizations.map(n => `  ${n.from} → ${n.to}`),
+      ].join('\n');
+      output(lines, true, lines);
+    }
+  } else {
+    // output() JSON.stringify's its first arg when raw=false; pass the report object.
+    output(report, false, report);
+  }
+}
+
 module.exports = {
   VALID_CONFIG_KEYS,
   cmdConfigEnsureSection,
@@ -637,4 +690,5 @@ module.exports = {
   cmdConfigSetModelProfile,
   cmdConfigNewProject,
   cmdConfigPath,
+  cmdMigrateConfig,
 };
