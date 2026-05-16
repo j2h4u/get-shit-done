@@ -209,11 +209,11 @@ function assertFreshInstallContract(runtime, targetDir) {
   );
 
   if (contract.surface === 'flat-skills') {
-    if (runtime === 'codex') {
-      assertNoGsdDirectoryEntries(targetDir, 'skills');
-    } else {
-      assertHasGsdDirectory(targetDir, 'skills');
-    }
+    // Pre-#3562: codex was special-cased to expect zero gsd-* skill dirs
+    // (assumption: Codex auto-discovers from workflows). That assumption
+    // does not hold for Codex CLI 0.130.0 — fresh installs now materialize
+    // the same flat-skills surface as the other runtimes.
+    assertHasGsdDirectory(targetDir, 'skills');
   } else if (contract.surface === 'hermes-skills') {
     assertHasGsdDirectory(targetDir, path.join('skills', 'gsd'));
     assert.ok(
@@ -306,7 +306,7 @@ describe('installer migration install integration', { concurrency: false }, () =
   });
 
   test('blocks install before materialization when baseline needs explicit user choice', () => {
-    writeFile(codexHome, 'hooks/gsd-retired-hook.js', 'old gsd hook\n');
+    writeFile(codexHome, 'hooks/gsd-retired-hook.txt', 'old gsd hook\n');
 
     assert.throws(
       () => captureConsole(() =>
@@ -315,7 +315,7 @@ describe('installer migration install integration', { concurrency: false }, () =
       /installer migration blocked/
     );
 
-    assert.equal(fs.readFileSync(path.join(codexHome, 'hooks/gsd-retired-hook.js'), 'utf8'), 'old gsd hook\n');
+    assert.equal(fs.readFileSync(path.join(codexHome, 'hooks/gsd-retired-hook.txt'), 'utf8'), 'old gsd hook\n');
     assert.equal(fs.existsSync(path.join(codexHome, 'skills')), false);
     assert.equal(fs.existsSync(path.join(codexHome, 'get-shit-done', 'VERSION')), false);
   });
